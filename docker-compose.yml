@@ -5,7 +5,7 @@ services:
     build: .
     container_name: bookmarks-nav
     ports:
-      - "5007:80"
+      - "5005:80"
     volumes:
       # 挂载配置文件
       - ./config.yml:/app/config.yml:ro
