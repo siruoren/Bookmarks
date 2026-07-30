@@ -1,0 +1,36 @@
+# bookmarks导航页配置文件
+
+# Git仓库配置
+git:
+  # 远程仓库地址
+  repo_url: "git@gitee.com:xxxx.git"
+  # 本地克隆目录
+  local_dir: "./data/repo"
+  # 分支名
+  branch: "master"
+  # SSH私钥路径(容器内路径，用于免密拉取)
+  ssh_key_path: "~/.ssh/id_rsa"
+  # bookmarks文件在仓库中的路径(支持多个)
+  # 也支持本地相对路径(仓库不存在时回退)
+  bookmark_files:
+    - "bookmarks.xbel"
+
+# 定时同步配置
+schedule:
+  # 是否启用定时同步
+  enabled: true
+  # 同步间隔(分钟)
+  interval_minutes: 30
+
+# Web服务配置
+web:
+  host: "0.0.0.0"
+  port: 80
+  debug: false
+
+# 最近常用地址配置
+recent:
+  # 最大保存数量
+  max_count: 20
+  # 存储文件路径
+  storage_path: "./data/recent.json"

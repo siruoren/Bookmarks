@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  bookmarks-nav:
+    build: .
+    container_name: bookmarks-nav
+    ports:
+      - "5007:80"
+    volumes:
+      # 挂载配置文件
+      - ./config.yml:/app/config.yml:ro
+      # 挂载SSH密钥(用于git拉取)
+      - ~/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+      # 持久化数据目录
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped

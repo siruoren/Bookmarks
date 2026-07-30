@@ -1,0 +1,125 @@
+"""解析Netscape Bookmark HTML文件"""
+import re
+from html import unescape
+from typing import List, Dict
+
+
+def parse_bookmarks(file_path: str) -> List[Dict]:
+    """解析书签文件，返回分类书签列表
+
+    Returns:
+        [{"category": "视频", "items": [{"title": "...", "url": "..."}]}]
+    """
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    result = []
+    # 用栈跟踪当前层级分类名
+    category_stack = []
+    # 匹配 <DT><H3...>分类名</H3> 和 <DT><A HREF="url"...>标题</A>
+    h3_pattern = re.compile(r'<DT><H3[^>]*>(.*?)</H3>', re.IGNORECASE)
+    a_pattern = re.compile(r'<DT><A\s+HREF="([^"]+)"[^>]*>(.*?)</A>', re.IGNORECASE)
+    dl_open_pattern = re.compile(r'<DL>', re.IGNORECASE)
+    dl_close_pattern = re.compile(r'</DL>', re.IGNORECASE)
+
+    pos = 0
+    # 当前分类下的书签暂存
+    current_items = []
+
+    while pos < len(content):
+        # 查找下一个关键标签
+        next_h3 = h3_pattern.search(content, pos)
+        next_a = a_pattern.search(content, pos)
+        next_dl_open = dl_open_pattern.search(content, pos)
+        next_dl_close = dl_close_pattern.search(content, pos)
+
+        candidates = []
+        if next_h3:
+            candidates.append((next_h3.start(), 'h3', next_h3))
+        if next_a:
+            candidates.append((next_a.start(), 'a', next_a))
+        if next_dl_open:
+            candidates.append((next_dl_open.start(), 'dl_open', next_dl_open))
+        if next_dl_close:
+            candidates.append((next_dl_close.start(), 'dl_close', next_dl_close))
+
+        if not candidates:
+            break
+
+        candidates.sort(key=lambda x: x[0])
+        _, tag_type, match = candidates[0]
+
+        if tag_type == 'h3':
+            # 保存之前分类的书签
+            if current_items and category_stack:
+                result.append({
+                    "category": " / ".join(category_stack),
+                    "items": current_items
+                })
+                current_items = []
+            category_name = unescape(match.group(1).strip())
+            category_stack.append(category_name)
+            pos = match.end()
+
+        elif tag_type == 'dl_open':
+            pos = match.end()
+
+        elif tag_type == 'dl_close':
+            # 保存当前分类书签
+            if current_items and category_stack:
+                result.append({
+                    "category": " / ".join(category_stack),
+                    "items": current_items
+                })
+                current_items = []
+            if category_stack:
+                category_stack.pop()
+            pos = match.end()
+
+        elif tag_type == 'a':
+            url = unescape(match.group(1).strip())
+            title = unescape(match.group(2).strip())
+            current_items.append({"title": title, "url": url})
+            pos = match.end()
+
+    # 处理末尾残留
+    if current_items and category_stack:
+        result.append({
+            "category": " / ".join(category_stack),
+            "items": current_items
+        })
+
+    return result
+
+
+def flatten_bookmarks(categories: List[Dict]) -> List[Dict]:
+    """将分类书签展平为单一列表"""
+    items = []
+    for cat in categories:
+        for item in cat["items"]:
+            items.append({
+                "title": item["title"],
+                "url": item["url"],
+                "category": cat["category"]
+            })
+    return items
+
+
+def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
+    """全局搜索书签，匹配标题或URL"""
+    keyword = keyword.lower().strip()
+    if not keyword:
+        return categories
+
+    result = []
+    for cat in categories:
+        matched_items = []
+        for item in cat["items"]:
+            if keyword in item["title"].lower() or keyword in item["url"].lower():
+                matched_items.append(item)
+        if matched_items:
+            result.append({
+                "category": cat["category"],
+                "items": matched_items
+            })
+    return result
