@@ -20,7 +20,7 @@ schedule:
   # 是否启用定时同步
   enabled: true
   # 同步间隔(分钟)
-  interval_minutes: 30
+  interval_minutes: 5
 
 # Web服务配置
 web:
