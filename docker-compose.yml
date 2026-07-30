@@ -10,7 +10,7 @@ services:
       # 挂载配置文件
       - ./config.yml:/app/config.yml:ro
       # 挂载SSH密钥(用于git拉取)
-      - ~/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+      - ./ssh-keys:/root/.ssh:ro
       # 持久化数据目录
       - ./data:/app/data
     environment:
