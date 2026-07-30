@@ -23,6 +23,8 @@ scheduler: Optional[Scheduler] = None
 recent_items: List[Dict] = []
 recent_max: int = 20
 recent_path: str = "./data/recent.json"
+# 文件修改时间跟踪
+bookmark_file_mtimes: Dict[str, float] = {}
 
 # 配置热加载相关
 config_path: str = "config.yml"
@@ -73,38 +75,68 @@ def add_recent(title: str, url: str, category: str = ""):
     save_recent()
 
 
-def refresh_bookmarks():
-    """刷新书签数据(从git同步并重新解析)"""
-    global bookmarks_data, last_update
+def refresh_bookmarks() -> bool:
+    """刷新书签数据(从git同步并重新解析)
+    
+    Returns:
+        bool: 是否执行了实际的解析更新
+    """
+    global bookmarks_data, last_update, bookmark_file_mtimes
+    
     if git_sync:
         try:
             git_sync.sync()
         except Exception as e:
             logger.warning("Git同步失败(将使用本地文件): %s", e)
 
-    new_data = []
     config = getattr(app, "config_data", {})
     bookmark_files = config.get("git", {}).get("bookmark_files", [])
-
+    
+    # 检查文件是否有变更
+    has_changes = False
+    files_to_parse = []
+    
     for bf in bookmark_files:
         fpath = None
         if git_sync:
             fpath = git_sync.get_file_path(bf)
         if not fpath and os.path.isfile(bf):
             fpath = bf
-
-        if fpath:
+        
+        if fpath and os.path.isfile(fpath):
             try:
-                data = parse_bookmarks(fpath)
-                new_data.extend(data)
-                logger.info("解析书签文件: %s, 共 %d 个分类", fpath, len(data))
+                current_mtime = os.path.getmtime(fpath)
+                if fpath not in bookmark_file_mtimes or bookmark_file_mtimes[fpath] != current_mtime:
+                    has_changes = True
+                    files_to_parse.append(fpath)
+                    bookmark_file_mtimes[fpath] = current_mtime
             except Exception as e:
-                logger.error("解析书签文件失败 %s: %s", fpath, e)
+                logger.warning("获取文件修改时间失败 %s: %s", fpath, e)
+                # 无法获取修改时间时，默认需要解析
+                has_changes = True
+                files_to_parse.append(fpath)
+    
+    if not has_changes:
+        logger.info("书签文件无变更，跳过解析")
+        return False
+    
+    logger.info("检测到书签文件变更，开始解析")
+    
+    new_data = []
+    for fpath in files_to_parse:
+        try:
+            data = parse_bookmarks(fpath)
+            new_data.extend(data)
+            logger.info("解析书签文件: %s, 共 %d 个分类", fpath, len(data))
+        except Exception as e:
+            logger.error("解析书签文件失败 %s: %s", fpath, e)
 
     if new_data:
         bookmarks_data = new_data
         last_update = time.time()
         logger.info("书签数据已更新, 共 %d 个分类", len(bookmarks_data))
+    
+    return True
 
 
 def apply_config(config: dict):
@@ -143,7 +175,9 @@ def apply_config(config: dict):
         # 定时任务: 先检测配置变更, 再同步书签
         def scheduled_task():
             check_config_hot_reload()
-            refresh_bookmarks()
+            updated = refresh_bookmarks()
+            if not updated:
+                logger.info("定时任务: 书签无变更，跳过解析")
 
         scheduler = Scheduler(
             interval_minutes=interval,
