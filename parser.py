@@ -112,13 +112,6 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
                 "items": current_items
             })
 
-    # 将根目录书签添加到结果开头（先显示书签条目）
-    if root_bookmarks:
-        result.insert(0, {
-            "category": "书签栏",
-            "items": root_bookmarks
-        })
-
     # 合并重复的分类路径
     merged_result = {}
     for cat in result:
@@ -131,6 +124,13 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     
     # 转换回列表格式
     result = list(merged_result.values())
+
+    # 将根目录书签作为特殊字段添加到结果中
+    if root_bookmarks:
+        result.append({
+            "category": "__root_bookmarks__",
+            "items": root_bookmarks
+        })
 
     return result
 

@@ -525,11 +525,13 @@ async function recordVisit(title, url, category) {
 // 渲染侧边栏
 function renderSidebar(categories) {
   const menu = document.getElementById('sidebarMenu');
+  const regularCategories = getRegularCategories();
+  
   let html = `<div class="menu-item ${currentCat === null && !isSearchMode ? 'active' : ''}" onclick="showAll()">
     <span class="icon">🏠</span><span class="label">全部目录</span>
-    <span class="cnt">${categories.reduce((s,c) => s + c.items.length, 0)}</span>
+    <span class="cnt">${regularCategories.reduce((s,c) => s + c.items.length, 0)}</span>
   </div>`;
-  categories.forEach((cat, i) => {
+  regularCategories.forEach((cat, i) => {
     const name = escHtml(cat.category);
     const shortName = name.split(' / ').pop();
     html += `<div class="menu-item ${currentCat === i && !isSearchMode ? 'active' : ''}" onclick="showCategory(${i})">
@@ -559,7 +561,8 @@ function showCategory(idx) {
   document.getElementById('searchInput').value = '';
   document.getElementById('clearBtn').style.display = 'none';
   renderSidebar(allCategories);
-  renderCategoryDetail(idx);
+  const regularCategories = getRegularCategories();
+  renderCategoryDetail(idx, regularCategories);
   closeSidebar();
 }
 
@@ -599,9 +602,25 @@ function renderOverview() {
     html += '</div></div>';
   }
 
+  // 根书签（书签栏内容）
+  const rootBookmarks = getRootBookmarks();
+  if (rootBookmarks.length > 0) {
+    html += '<div class="recent-section"><h2>📌 书签栏</h2><div class="bookmark-grid">';
+    rootBookmarks.forEach(item => {
+      const t = escHtml(cleanTitle(item.title, item.url));
+      const u = escHtml(item.url);
+      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener" onclick="recordVisit('${escJs(item.title)}','${escJs(item.url)}','书签栏')">
+        ${bmIconHtml(item.url, item.title)}
+        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
+      </a>`;
+    });
+    html += '</div></div>';
+  }
+
   // 目录卡片
+  const regularCategories = getRegularCategories();
   html += '<div class="overview-grid">';
-  allCategories.forEach((cat, i) => {
+  regularCategories.forEach((cat, i) => {
     const name = escHtml(cat.category);
     const shortName = name.split(' / ').pop();
     html += `<div class="overview-card" onclick="showCategory(${i})">
@@ -616,8 +635,8 @@ function renderOverview() {
 }
 
 // 分类详情视图
-function renderCategoryDetail(idx) {
-  const cat = allCategories[idx];
+function renderCategoryDetail(idx, categories) {
+  const cat = categories[idx];
   if (!cat) return;
   const content = document.getElementById('content');
   const name = escHtml(cat.category);
@@ -703,6 +722,17 @@ async function init() {
   // 初始化日历和天气
   updateCalendar();
   initWeather();
+}
+
+// 获取根书签
+function getRootBookmarks() {
+  const rootCat = allCategories.find(c => c.category === '__root_bookmarks__');
+  return rootCat ? rootCat.items : [];
+}
+
+// 获取普通分类（排除根书签）
+function getRegularCategories() {
+  return allCategories.filter(c => c.category !== '__root_bookmarks__');
 }
 
 // 搜索
