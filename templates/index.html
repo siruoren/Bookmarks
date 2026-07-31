@@ -671,7 +671,7 @@ function renderCategoryTree(tree, level, parentPath = '') {
     
     // 只显示有书签的节点或有子节点的节点
     if (node.hasBookmarks || hasChildren) {
-      const icon = hasChildren ? (isExpanded ? '�' : '�') : '📄';
+      const icon = hasChildren ? (isExpanded ? '📂' : '📁') : '📄';
       
       html += `<div class="menu-item ${isActive ? 'active' : ''}" 
                style="padding-left: ${10 + indent}px"
