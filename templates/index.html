@@ -672,8 +672,8 @@ function renderCategoryTree(tree, level, parentPath = '') {
     const isActive = currentCat === node.fullPath && !isSearchMode;
     const isExpanded = expandedNodes.has(node.fullPath);
     
-    // 只显示有书签的节点或有子节点的节点
-    if (node.hasBookmarks || hasChildren) {
+    // 显示所有有子节点的节点，或有书签的节点
+    if (hasChildren || node.hasBookmarks) {
       const icon = hasChildren ? (isExpanded ? '📂' : '📁') : '📄';
       
       html += `<div class="menu-item ${isActive ? 'active' : ''}" 
@@ -753,9 +753,28 @@ function showCategory(categoryName) {
   document.getElementById('clearBtn').style.display = 'none';
   renderSidebar(allCategories);
   const regularCategories = getRegularCategories();
+  
+  // 查找精确匹配的分类
   const category = regularCategories.find(c => c.category === categoryName);
+  
   if (category) {
+    // 如果找到精确匹配，显示该分类
     renderCategoryDetail(category, regularCategories);
+  } else {
+    // 如果没有精确匹配（可能是父目录），创建一个虚拟分类对象
+    const subdirectories = regularCategories.filter(c => 
+      c.category.startsWith(categoryName + ' / ')
+    );
+    
+    if (subdirectories.length > 0) {
+      // 创建虚拟分类对象用于显示
+      const virtualCategory = {
+        category: categoryName,
+        items: [], // 父目录没有直接的书签
+        virtual: true // 标记为虚拟分类
+      };
+      renderCategoryDetail(virtualCategory, regularCategories);
+    }
   }
   closeSidebar();
 }
