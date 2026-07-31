@@ -25,9 +25,6 @@ recent_max: int = 20
 recent_data_dir: str = "./data/recent"
 # 文件修改时间跟踪
 bookmark_file_mtimes: Dict[str, float] = {}
-# 目录顺序存储（按设备ID）
-category_order: Dict[str, List[str]] = {}  # 缓存
-category_order_data_dir: str = "./data/category_order"
 
 # 配置热加载相关
 config_path: str = "config.yml"
@@ -40,60 +37,6 @@ def load_config(path: str = "config.yml") -> dict:
     import yaml
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
-
-
-def get_category_order_file_path(device_id: str) -> str:
-    """获取指定设备的目录顺序文件路径"""
-    return os.path.join(category_order_data_dir, f"{device_id}.json")
-
-
-def load_category_order():
-    """加载目录顺序"""
-    global category_order
-    try:
-        # 确保目录存在
-        os.makedirs(category_order_data_dir, exist_ok=True)
-        
-        # 加载设备文件
-        category_order = {}
-        for filename in os.listdir(category_order_data_dir):
-            if filename.endswith('.json'):
-                device_id = filename[:-5]  # 移除 .json
-                try:
-                    with open(os.path.join(category_order_data_dir, filename), "r", encoding="utf-8") as f:
-                        category_order[device_id] = json.load(f)
-                except Exception as e:
-                    logger.warning("加载设备 %s 的目录顺序失败: %s", device_id, e)
-                    
-    except Exception as e:
-        logger.warning("加载目录顺序失败: %s", e)
-        category_order = {}
-
-
-def save_device_category_order(device_id: str, order: List[str]):
-    """保存指定设备的目录顺序"""
-    try:
-        os.makedirs(category_order_data_dir, exist_ok=True)
-        with open(get_category_order_file_path(device_id), "w", encoding="utf-8") as f:
-            json.dump(order, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.warning("保存设备 %s 的目录顺序失败: %s", device_id, e)
-
-
-def save_category_order():
-    """保存目录顺序（兼容旧接口）"""
-    # 这个函数现在只用于兼容，实际保存使用 save_device_category_order
-    pass
-
-
-def cleanup_category_order(current_categories: List[str]):
-    """清理不存在的目录顺序"""
-    global category_order
-    current_set = set(current_categories)
-    for device_id in list(category_order.keys()):
-        # 只保留当前存在的目录
-        category_order[device_id] = [cat for cat in category_order[device_id] if cat in current_set]
-        save_device_category_order(device_id, category_order[device_id])
 
 
 def get_recent_file_path(device_id: str) -> str:
@@ -224,17 +167,13 @@ def refresh_bookmarks() -> bool:
         bookmarks_data = new_data
         last_update = time.time()
         logger.info("书签数据已更新, 共 %d 个分类", len(bookmarks_data))
-        
-        # 清理不存在的目录顺序
-        current_categories = [cat["category"] for cat in bookmarks_data]
-        cleanup_category_order(current_categories)
     
     return True
 
 
 def apply_config(config: dict):
     """应用配置到全局状态(热加载核心)"""
-    global git_sync, scheduler, recent_max, recent_path
+    global git_sync, scheduler, recent_max
 
     with config_lock:
         app.config_data = config
@@ -307,7 +246,6 @@ def init_app(path: str = "config.yml"):
 
     config = load_config(path)
     load_recent()
-    load_category_order()
     apply_config(config)
 
 
@@ -429,24 +367,3 @@ def api_config_reload():
         return jsonify({"ok": True, "message": "配置已重新加载"})
     except Exception as e:
         return jsonify({"ok": False, "message": str(e)}), 500
-
-
-@app.route("/api/category_order", methods=["GET"])
-def api_category_order():
-    """获取目录顺序"""
-    device_id = request.args.get("device_id", "")
-    if device_id and device_id in category_order:
-        return jsonify({"order": category_order[device_id]})
-    return jsonify({"order": []})
-
-
-@app.route("/api/category_order", methods=["POST"])
-def api_category_order_save():
-    """保存目录顺序"""
-    data = request.get_json(silent=True) or {}
-    order = data.get("order", [])
-    device_id = data.get("device_id", "")
-    if order and device_id:
-        category_order[device_id] = order
-        save_device_category_order(device_id, order)
-    return jsonify({"ok": True})
