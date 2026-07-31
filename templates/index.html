@@ -39,9 +39,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .header .right-col { display: flex; align-items: center; gap: 12px; justify-self: end; }
 
 /* 日历 */
-.calendar { color: #fff; font-size: 13px; text-align: center; line-height: 1.3; }
-.calendar .date { font-size: 16px; font-weight: 600; }
-.calendar .time { font-size: 11px; opacity: 0.8; }
+.calendar { color: #fff; font-size: 13px; text-align: center; line-height: 1.2; }
+.calendar .weekday { font-size: 11px; opacity: 0.85; }
+.calendar .date { font-size: 15px; font-weight: 600; }
 
 /* 天气 */
 .weather { display: flex; align-items: center; gap: 6px; color: #fff; font-size: 13px; }
@@ -281,9 +281,9 @@ function saveToLocalStorage() {
 // 日历功能
 function updateCalendar() {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('zh-CN', {month: 'short', day: 'numeric', weekday: 'short'});
-  const timeStr = now.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
-  document.getElementById('calendar').innerHTML = `<div class="date">${dateStr}</div><div class="time">${timeStr}</div>`;
+  const weekdayStr = now.toLocaleDateString('zh-CN', {weekday: 'short'});
+  const dateStr = now.toLocaleDateString('zh-CN', {month: 'short', day: 'numeric'});
+  document.getElementById('calendar').innerHTML = `<div class="weekday">${weekdayStr}</div><div class="date">${dateStr}</div>`;
 }
 
 // 天气功能
@@ -702,7 +702,6 @@ async function init() {
   
   // 初始化日历和天气
   updateCalendar();
-  setInterval(updateCalendar, 60000); // 每分钟更新一次
   initWeather();
 }
 
