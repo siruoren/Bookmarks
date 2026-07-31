@@ -28,8 +28,8 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     # 根目录下的书签（用于展平显示）
     root_bookmarks = []
     
-    # 需要跳过的根目录名
-    skip_root_categories = {"Bookmarks Bar", "Other Bookmarks"}
+    # 需要跳过的根目录名（只跳过 Other Bookmarks，保留 Bookmarks Bar）
+    skip_root_categories = {""}
 
     while pos < len(content):
         # 查找下一个关键标签
