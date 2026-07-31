@@ -281,6 +281,18 @@ def api_search():
     })
 
 
+@app.route("/api/recent/delete", methods=["POST"])
+def api_recent_delete():
+    """删除最近常用项"""
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "")
+    if url:
+        global recent_items
+        recent_items = [r for r in recent_items if r["url"] != url]
+        save_recent()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/config/reload", methods=["POST"])
 def api_config_reload():
     """手动触发配置热加载"""

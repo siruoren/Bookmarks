@@ -62,9 +62,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .recent-section { margin-bottom: 24px; }
 .recent-section h2 { font-size: 14px; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .recent-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.recent-item { background: var(--card); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; transition: all .2s; box-shadow: var(--shadow); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.recent-item { background: var(--card); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; transition: all .2s; box-shadow: var(--shadow); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); position: relative; }
 .recent-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(91,106,191,.15); color: var(--primary); }
 .recent-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+.recent-item .delete-btn { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #e74c3c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
+.recent-item.show-delete .delete-btn { display: flex; }
 
 /* 分类视图 - 首页概览 */
 .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -301,8 +303,11 @@ function renderOverview() {
   // 最近常用
   if (recentData.length > 0) {
     html += '<div class="recent-section"><h2>⭐ 最近常用</h2><div class="recent-grid">';
-    recentData.forEach(item => {
-      html += `<a class="recent-item" href="${escAttr(item.url)}" target="_blank" rel="noopener" onclick="recordVisit('${escJs(item.title)}','${escJs(item.url)}','${escJs(item.category||'')}')"><span class="dot"></span>${escHtml(cleanTitle(item.title, item.url))}</a>`;
+    recentData.forEach((item, index) => {
+      html += `<div class="recent-item" data-url="${escAttr(item.url)}" data-index="${index}">
+        <span class="delete-btn" onclick="deleteRecent(event, '${escJs(item.url)}')">&times;</span>
+        <span class="dot"></span>${escHtml(cleanTitle(item.title, item.url))}
+      </div>`;
     });
     html += '</div></div>';
   }
@@ -320,6 +325,7 @@ function renderOverview() {
   });
   html += '</div>';
   content.innerHTML = html;
+  setupLongPress();
 }
 
 // 分类详情视图
@@ -431,6 +437,73 @@ function toggleSearchBox() {
   if (searchBox.classList.contains('show')) {
     document.getElementById('searchInput').focus();
   }
+}
+
+// 长按处理
+let longPressTimer = null;
+let longPressElement = null;
+
+function setupLongPress() {
+  document.querySelectorAll('.recent-item').forEach(item => {
+    item.addEventListener('mousedown', startLongPress);
+    item.addEventListener('touchstart', startLongPress);
+    item.addEventListener('mouseup', cancelLongPress);
+    item.addEventListener('mouseleave', cancelLongPress);
+    item.addEventListener('touchend', cancelLongPress);
+    item.addEventListener('click', handleRecentClick);
+  });
+}
+
+function startLongPress(e) {
+  if (e.target.classList.contains('delete-btn')) return;
+  
+  longPressElement = e.currentTarget;
+  longPressTimer = setTimeout(() => {
+    if (longPressElement) {
+      longPressElement.classList.add('show-delete');
+    }
+  }, 500);
+}
+
+function cancelLongPress() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function handleRecentClick(e) {
+  if (e.target.classList.contains('delete-btn')) return;
+  
+  const item = e.currentTarget;
+  const url = item.dataset.url;
+  
+  // 如果显示删除按钮，先隐藏
+  if (item.classList.contains('show-delete')) {
+    item.classList.remove('show-delete');
+    return;
+  }
+  
+  // 否则跳转
+  const title = recentData.find(r => r.url === url)?.title || '';
+  const category = recentData.find(r => r.url === url)?.category || '';
+  window.open(url, '_blank');
+  recordVisit(title, url, category);
+}
+
+// 删除最近常用项
+async function deleteRecent(event, url) {
+  event.stopPropagation();
+  event.preventDefault();
+  
+  await fetch('/api/recent/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url})
+  });
+  
+  await loadRecent();
+  renderOverview();
 }
 
 // 工具函数
