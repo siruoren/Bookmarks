@@ -195,10 +195,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
   </div>
 </div>
 
-<script>
+<script>// 设备ID管理
+function getDeviceId() {
+  let deviceId = localStorage.getItem('bookmarks_device_id');
+  if (!deviceId) {
+    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('bookmarks_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+let deviceId = getDeviceId();
+
+// 全局状态
 let allCategories = [];
 let recentData = [];
-let searchTimer = null;
+let bookmarksData = [];
 let currentCat = null; // 当前选中的分类索引, null=全部
 let isSearchMode = false;
 
@@ -247,16 +259,21 @@ async function loadBookmarks(keyword) {
 }
 
 async function loadRecent() {
-  const resp = await fetch('/api/recent');
-  const data = await resp.json();
-  recentData = data.items || [];
+  try {
+    const res = await fetch(`/api/recent?device_id=${encodeURIComponent(deviceId)}`);
+    const data = await res.json();
+    recentData = data.items || [];
+  } catch (e) {
+    console.error("加载最近常用失败", e);
+    recentData = [];
+  }
 }
 
 async function recordVisit(title, url, category) {
   await fetch('/api/visit', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title, url, category})
+    body: JSON.stringify({title, url, category, device_id: deviceId})
   });
   loadRecent();
 }
@@ -551,7 +568,7 @@ async function deleteRecent(event, url) {
   await fetch('/api/recent/delete', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url})
+    body: JSON.stringify({url, device_id: deviceId})
   });
   
   await loadRecent();
@@ -566,7 +583,7 @@ async function togglePin(event, url, pin) {
   await fetch('/api/recent/pin', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url, pin})
+    body: JSON.stringify({url, pin, device_id: deviceId})
   });
   
   await loadRecent();
@@ -630,7 +647,7 @@ async function handleDrop(e) {
     await fetch('/api/recent/reorder', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({urls})
+      body: JSON.stringify({urls, device_id: deviceId})
     });
     
     await loadRecent();

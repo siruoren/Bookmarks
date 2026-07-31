@@ -20,7 +20,7 @@ bookmarks_data: List[Dict] = []
 last_update: float = 0
 git_sync: Optional[GitSync] = None
 scheduler: Optional[Scheduler] = None
-recent_items: List[Dict] = []
+recent_items: Dict[str, List[Dict]] = {}  # 改为按设备ID存储的字典
 recent_max: int = 20
 recent_path: str = "./data/recent.json"
 # 文件修改时间跟踪
@@ -45,10 +45,15 @@ def load_recent():
     try:
         if os.path.isfile(recent_path):
             with open(recent_path, "r", encoding="utf-8") as f:
-                recent_items = json.load(f)
+                data = json.load(f)
+                # 兼容旧格式（列表）和新格式（字典）
+                if isinstance(data, list):
+                    recent_items = {"default": data}
+                else:
+                    recent_items = data
     except Exception as e:
         logger.warning("加载最近访问记录失败: %s", e)
-        recent_items = []
+        recent_items = {}
 
 
 def save_recent():
@@ -61,18 +66,28 @@ def save_recent():
         logger.warning("保存最近访问记录失败: %s", e)
 
 
-def add_recent(title: str, url: str, category: str = ""):
+def add_recent(title: str, url: str, category: str = "", device_id: str = "default"):
     """添加最近访问项"""
     global recent_items
-    recent_items = [r for r in recent_items if r["url"] != url]
-    recent_items.insert(0, {
+    if device_id not in recent_items:
+        recent_items[device_id] = []
+    
+    device_items = recent_items[device_id]
+    device_items = [r for r in device_items if r["url"] != url]
+    device_items.insert(0, {
         "title": title,
         "url": url,
         "category": category,
         "timestamp": int(time.time())
     })
-    recent_items = recent_items[:recent_max]
+    device_items = device_items[:recent_max]
+    recent_items[device_id] = device_items
     save_recent()
+
+
+def get_device_recent(device_id: str) -> List[Dict]:
+    """获取指定设备的最近访问记录"""
+    return recent_items.get(device_id, [])
 
 
 def refresh_bookmarks() -> bool:
@@ -243,9 +258,12 @@ def api_bookmarks():
     })
 
 
-@app.route("/api/recent")
+@app.route("/api/recent", methods=["GET"])
 def api_recent():
-    """获取最近常用地址"""
+    """获取最近常用项"""
+    device_id = request.args.get("device_id", "")
+    if device_id:
+        return jsonify({"items": get_device_recent(device_id)})
     return jsonify({"items": recent_items})
 
 
@@ -256,8 +274,9 @@ def api_visit():
     title = data.get("title", "")
     url = data.get("url", "")
     category = data.get("category", "")
+    device_id = data.get("device_id", "default")
     if title and url:
-        add_recent(title, url, category)
+        add_recent(title, url, category, device_id)
     return jsonify({"ok": True})
 
 
@@ -287,17 +306,18 @@ def api_recent_pin():
     data = request.get_json(silent=True) or {}
     url = data.get("url", "")
     pin = data.get("pin", True)
-    if url:
-        global recent_items
-        for item in recent_items:
+    device_id = data.get("device_id", "default")
+    if url and device_id in recent_items:
+        device_items = recent_items[device_id]
+        for item in device_items:
             if item["url"] == url:
                 item["pinned"] = pin
                 if pin:
                     # 置顶时移到最前面
-                    recent_items = [item] + [r for r in recent_items if r["url"] != url]
+                    recent_items[device_id] = [item] + [r for r in device_items if r["url"] != url]
                 else:
                     # 取消置顶时移到未置顶区域
-                    recent_items = [r for r in recent_items if r["url"] != url] + [item]
+                    recent_items[device_id] = [r for r in device_items if r["url"] != url] + [item]
                 break
         save_recent()
     return jsonify({"ok": True})
@@ -308,11 +328,12 @@ def api_recent_reorder():
     """重新排序置顶项"""
     data = request.get_json(silent=True) or {}
     urls = data.get("urls", [])
-    if urls:
-        global recent_items
+    device_id = data.get("device_id", "default")
+    if urls and device_id in recent_items:
+        device_items = recent_items[device_id]
         # 分离置顶和未置顶
-        pinned = [r for r in recent_items if r.get("pinned", False)]
-        unpinned = [r for r in recent_items if not r.get("pinned", False)]
+        pinned = [r for r in device_items if r.get("pinned", False)]
+        unpinned = [r for r in device_items if not r.get("pinned", False)]
         
         # 按新的URL顺序重新排列置顶项
         pinned_dict = {r["url"]: r for r in pinned}
@@ -322,7 +343,7 @@ def api_recent_reorder():
                 new_pinned.append(pinned_dict[url])
         
         # 合并
-        recent_items = new_pinned + unpinned
+        recent_items[device_id] = new_pinned + unpinned
         save_recent()
     return jsonify({"ok": True})
 
@@ -332,9 +353,9 @@ def api_recent_delete():
     """删除最近常用项"""
     data = request.get_json(silent=True) or {}
     url = data.get("url", "")
-    if url:
-        global recent_items
-        recent_items = [r for r in recent_items if r["url"] != url]
+    device_id = data.get("device_id", "default")
+    if url and device_id in recent_items:
+        recent_items[device_id] = [r for r in recent_items[device_id] if r["url"] != url]
         save_recent()
     return jsonify({"ok": True})
 
