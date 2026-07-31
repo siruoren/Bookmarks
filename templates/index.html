@@ -212,6 +212,8 @@ let allCategories = [];
 let recentData = [];
 let currentCat = null; // 当前选中的分类索引, null=全部
 let isSearchMode = false;
+let cachedBookmarks = null; // 缓存的书签数据
+let cachedUpdateTime = 0; // 缓存的后端更新时间
 
 // 分类图标
 const CAT_ICONS = ['📂','🎬','📝','💻','🎮','🎧','🔧','🏠','📚','💰','🛒','✈️','🖼️','👔','🔗','🌍','📊','🗂️','⚙️','🧰','📁','🔔','📌','🎯'];
@@ -252,9 +254,28 @@ function cleanTitle(title, url) {
 }
 
 async function loadBookmarks(keyword) {
+  // 检查后端更新时间
+  const timeRes = await fetch('/api/update_time');
+  const timeData = await timeRes.json();
+  const backendUpdateTime = timeData.last_update || 0;
+  
+  // 如果有缓存且缓存时间不晚于后端更新时间，使用缓存
+  if (cachedBookmarks && cachedUpdateTime >= backendUpdateTime && !keyword) {
+    return cachedBookmarks;
+  }
+  
+  // 否则从后端获取数据
   const url = keyword ? '/api/bookmarks?q=' + encodeURIComponent(keyword) : '/api/bookmarks';
   const resp = await fetch(url);
-  return resp.json();
+  const data = await resp.json();
+  
+  // 更新缓存（仅在非搜索时缓存完整数据）
+  if (!keyword) {
+    cachedBookmarks = data;
+    cachedUpdateTime = backendUpdateTime;
+  }
+  
+  return data;
 }
 
 async function loadRecent() {

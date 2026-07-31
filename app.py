@@ -243,6 +243,12 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/update_time")
+def api_update_time():
+    """获取后端更新时间"""
+    return jsonify({"last_update": last_update})
+
+
 @app.route("/api/bookmarks")
 def api_bookmarks():
     """获取所有书签数据"""
