@@ -82,6 +82,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .sidebar-header .collapse-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: background .2s; }
 .sidebar-header .collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
 .sidebar-menu { flex: 1; padding: 6px 0; }
+.sidebar-expand-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; border: none; width: 24px; height: 48px; cursor: pointer; border-radius: 0 8px 8px 0; display: none; align-items: center; justify-content: center; font-size: 14px; z-index: 100; box-shadow: 2px 0 8px rgba(0,0,0,.2); transition: left 0.3s ease; }
+.sidebar-expand-btn:hover { background: var(--primary-dark); }
+.sidebar-expand-btn.visible { display: flex; }
 .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
 .menu-item:hover { background: var(--primary-light); }
 .menu-item.active { background: var(--primary); color: #fff; }
@@ -244,6 +247,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
     </div>
     <div class="sidebar-menu" id="sidebarMenu"></div>
   </div>
+  <button class="sidebar-expand-btn" onclick="toggleSidebarCollapse()" title="展开侧边栏">▶</button>
   <div class="content" id="content">
     <div class="loading">加载中...</div>
   </div>
@@ -307,6 +311,14 @@ function initSidebarCollapse() {
   const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
   if (collapsed) {
     document.getElementById('sidebar').classList.add('collapsed');
+    const collapseBtn = document.querySelector('.collapse-btn');
+    const expandBtn = document.querySelector('.sidebar-expand-btn');
+    if (collapseBtn) {
+      collapseBtn.textContent = '▶';
+    }
+    if (expandBtn) {
+      expandBtn.classList.add('visible');
+    }
   }
 }
 
@@ -316,10 +328,14 @@ function toggleSidebarCollapse() {
   const collapsed = sidebar.classList.contains('collapsed');
   localStorage.setItem('sidebar_collapsed', collapsed);
   
-  // 更新按钮图标
+  // 更新按钮图标和展开按钮显示
   const collapseBtn = document.querySelector('.collapse-btn');
+  const expandBtn = document.querySelector('.sidebar-expand-btn');
   if (collapseBtn) {
     collapseBtn.textContent = collapsed ? '▶' : '◀';
+  }
+  if (expandBtn) {
+    expandBtn.classList.toggle('visible', collapsed);
   }
 }
 
@@ -593,18 +609,116 @@ function renderSidebar(categories) {
     <span class="icon">🏠</span><span class="label">全部目录</span>
     <span class="cnt">${regularCategories.reduce((s,c) => s + c.items.length, 0)}</span>
   </div>`;
-  regularCategories.forEach((cat, i) => {
-    const name = escHtml(cat.category);
-    const shortName = name.split(' / ').pop();
-    html += `<div class="menu-item ${currentCat === cat.category && !isSearchMode ? 'active' : ''}" 
-             data-category="${escAttr(cat.category)}"
-             onclick="showCategory('${escJs(cat.category)}')">
-      <span class="icon ico-${i % 8}">${catIcon(i)}</span>
-      <span class="label" title="${name}">${escHtml(shortName)}</span>
-      <span class="cnt">${cat.items.length}</span>
-    </div>`;
-  });
+  
+  // 构建树结构并渲染
+  const tree = buildCategoryTree(regularCategories);
+  html += renderCategoryTree(tree, 0);
+  
   menu.innerHTML = html;
+}
+
+// 构建目录树结构
+function buildCategoryTree(categories) {
+  const tree = {};
+  
+  categories.forEach(cat => {
+    const path = cat.category.split(' / ');
+    let current = tree;
+    
+    path.forEach((segment, index) => {
+      if (!current[segment]) {
+        current[segment] = {
+          name: segment,
+          fullPath: path.slice(0, index + 1).join(' / '),
+          children: {},
+          isLeaf: index === path.length - 1,
+          category: cat,
+          hasBookmarks: index === path.length - 1
+        };
+      } else if (index === path.length - 1) {
+        // 如果这个节点已经存在但现在是叶子节点，标记为有书签
+        current[segment].isLeaf = true;
+        current[segment].hasBookmarks = true;
+        current[segment].category = cat;
+      }
+      current = current[segment].children;
+    });
+  });
+  
+  return tree;
+}
+
+// 递归渲染目录树
+function renderCategoryTree(tree, level, parentPath = '') {
+  let html = '';
+  const entries = Object.entries(tree).sort((a, b) => a[0].localeCompare(b[0]));
+  
+  entries.forEach(([name, node]) => {
+    const indent = level * 16;
+    const hasChildren = Object.keys(node.children).length > 0;
+    const isActive = currentCat === node.fullPath && !isSearchMode;
+    const isExpanded = expandedNodes.has(node.fullPath);
+    
+    // 只显示有书签的节点或有子节点的节点
+    if (node.hasBookmarks || hasChildren) {
+      const icon = hasChildren ? (isExpanded ? '�' : '�') : '📄';
+      
+      html += `<div class="menu-item ${isActive ? 'active' : ''}" 
+               style="padding-left: ${10 + indent}px"
+               data-category="${escAttr(node.fullPath)}"
+               data-has-children="${hasChildren}"
+               onclick="handleCategoryClick('${escJs(node.fullPath)}', ${hasChildren})">
+        <span class="icon">${icon}</span>
+        <span class="label">${escHtml(name)}</span>
+        ${node.hasBookmarks ? `<span class="cnt">${node.category.items.length}</span>` : ''}
+      </div>`;
+      
+      // 递归渲染子节点（只有展开时才显示）
+      if (hasChildren && isExpanded) {
+        html += renderCategoryTree(node.children, level + 1, node.fullPath);
+      }
+    }
+  });
+  
+  return html;
+}
+
+// 目录树展开状态
+let expandedNodes = new Set();
+
+// 初始化展开状态
+function initExpandedNodes() {
+  const saved = localStorage.getItem('expanded_nodes');
+  if (saved) {
+    expandedNodes = new Set(JSON.parse(saved));
+  }
+}
+
+// 保存展开状态
+function saveExpandedNodes() {
+  localStorage.setItem('expanded_nodes', JSON.stringify([...expandedNodes]));
+}
+
+// 切换节点展开状态
+function toggleNodeExpand(fullPath) {
+  if (expandedNodes.has(fullPath)) {
+    expandedNodes.delete(fullPath);
+  } else {
+    expandedNodes.add(fullPath);
+  }
+  saveExpandedNodes();
+  renderSidebar(allCategories);
+}
+
+// 处理分类点击
+function handleCategoryClick(categoryPath, hasChildren) {
+  if (hasChildren) {
+    // 如果有子目录，切换展开状态
+    toggleNodeExpand(categoryPath);
+  } else {
+    // 没有子目录，显示该分类的书签
+    showCategory(categoryPath);
+  }
 }
 
 // 显示全部目录概览
@@ -792,6 +906,9 @@ async function init() {
   
   // 初始化侧边栏折叠状态
   initSidebarCollapse();
+  
+  // 初始化目录树展开状态
+  initExpandedNodes();
   
   // 初始化日历和天气
   updateCalendar();
