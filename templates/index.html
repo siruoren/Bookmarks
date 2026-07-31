@@ -645,10 +645,10 @@ function renderSidebar(categories) {
   orderedCategories.forEach((cat, i) => {
     const name = escHtml(cat.category);
     const shortName = name.split(' / ').pop();
-    html += `<div class="menu-item ${currentCat === i && !isSearchMode ? 'active' : ''}" 
+    html += `<div class="menu-item ${currentCat === cat.category && !isSearchMode ? 'active' : ''}" 
              draggable="true" 
              data-category="${escAttr(cat.category)}"
-             onclick="showCategory(${i})"
+             onclick="showCategory('${escJs(cat.category)}')"
              ondragstart="handleDragStart(event)"
              ondragover="handleDragOver(event)"
              ondrop="handleDrop(event)"
@@ -673,14 +673,17 @@ function showAll() {
 }
 
 // 显示单个分类
-function showCategory(idx) {
-  currentCat = idx;
+function showCategory(categoryName) {
+  currentCat = categoryName;
   isSearchMode = false;
   document.getElementById('searchInput').value = '';
   document.getElementById('clearBtn').style.display = 'none';
   renderSidebar(allCategories);
   const regularCategories = getRegularCategories();
-  renderCategoryDetail(idx, regularCategories);
+  const category = regularCategories.find(c => c.category === categoryName);
+  if (category) {
+    renderCategoryDetail(category, regularCategories);
+  }
   closeSidebar();
 }
 
@@ -745,7 +748,7 @@ function renderOverview() {
     html += `<div class="overview-card" 
              draggable="true" 
              data-category="${escAttr(cat.category)}"
-             onclick="showCategory(${i})"
+             onclick="showCategory('${escJs(cat.category)}')"
              ondragstart="handleCardDragStart(event)"
              ondragover="handleCardDragOver(event)"
              ondrop="handleCardDrop(event)"
@@ -761,11 +764,10 @@ function renderOverview() {
 }
 
 // 分类详情视图
-function renderCategoryDetail(idx, categories) {
-  const cat = categories[idx];
-  if (!cat) return;
+function renderCategoryDetail(cat, categories) {
   const content = document.getElementById('content');
   const name = escHtml(cat.category);
+  const idx = categories.findIndex(c => c.category === cat.category);
 
   let html = `<div class="category-title">
     <span class="back-btn" onclick="showAll()">← 返回</span>
@@ -887,31 +889,11 @@ function handleDragOver(event) {
   const targetCategory = targetItem.dataset.category;
   if (draggedCategory === targetCategory) return;
   
-  // 计算插入位置
-  const regularCategories = getRegularCategories();
-  const currentOrder = regularCategories.map(c => c.category);
-  
-  const fromIndex = currentOrder.indexOf(draggedCategory);
-  const toIndex = currentOrder.indexOf(targetCategory);
-  
-  if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-    const newOrder = [...currentOrder];
-    newOrder.splice(fromIndex, 1);
-    newOrder.splice(toIndex, 0, draggedCategory);
-    
-    // 实时更新本地顺序
-    categoryOrder = newOrder;
-    
-    // 重新渲染以显示实时位置变化
-    renderSidebar(allCategories);
-    
-    // 恢复拖拽状态
-    const newDraggedElement = document.querySelector(`[data-category="${escAttr(draggedCategory)}"]`);
-    if (newDraggedElement) {
-      newDraggedElement.classList.add('dragging');
-      draggedElement = newDraggedElement;
-    }
-  }
+  // 只添加视觉反馈，不实时重排
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+  targetItem.classList.add('drag-over');
 }
 
 function handleDrop(event) {
@@ -920,10 +902,28 @@ function handleDrop(event) {
   if (!targetItem) return;
   
   targetItem.classList.remove('drag-over');
+  const targetCategory = targetItem.dataset.category;
   
-  // 防抖保存到后台
-  if (categoryOrder.length > 0) {
-    debouncedSaveCategoryOrder(categoryOrder);
+  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
+    // 更新本地顺序
+    const regularCategories = getRegularCategories();
+    const currentOrder = regularCategories.map(c => c.category);
+    
+    const fromIndex = currentOrder.indexOf(draggedCategory);
+    const toIndex = currentOrder.indexOf(targetCategory);
+    
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+      const newOrder = [...currentOrder];
+      newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, draggedCategory);
+      
+      // 立即更新本地状态和UI
+      categoryOrder = newOrder;
+      renderSidebar(allCategories);
+      
+      // 防抖保存到后台
+      debouncedSaveCategoryOrder(newOrder);
+    }
   }
 }
 
@@ -955,31 +955,11 @@ function handleCardDragOver(event) {
   const targetCategory = targetCard.dataset.category;
   if (draggedCategory === targetCategory) return;
   
-  // 计算插入位置
-  const regularCategories = getRegularCategories();
-  const currentOrder = regularCategories.map(c => c.category);
-  
-  const fromIndex = currentOrder.indexOf(draggedCategory);
-  const toIndex = currentOrder.indexOf(targetCategory);
-  
-  if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-    const newOrder = [...currentOrder];
-    newOrder.splice(fromIndex, 1);
-    newOrder.splice(toIndex, 0, draggedCategory);
-    
-    // 实时更新本地顺序
-    categoryOrder = newOrder;
-    
-    // 重新渲染以显示实时位置变化
-    renderOverview();
-    
-    // 恢复拖拽状态
-    const newDraggedElement = document.querySelector(`.overview-card[data-category="${escAttr(draggedCategory)}"]`);
-    if (newDraggedElement) {
-      newDraggedElement.classList.add('dragging');
-      draggedElement = newDraggedElement;
-    }
-  }
+  // 只添加视觉反馈，不实时重排
+  document.querySelectorAll('.overview-card').forEach(card => {
+    card.classList.remove('drag-over');
+  });
+  targetCard.classList.add('drag-over');
 }
 
 function handleCardDrop(event) {
@@ -988,10 +968,27 @@ function handleCardDrop(event) {
   if (!targetCard) return;
   
   targetCard.classList.remove('drag-over');
+  const targetCategory = targetCard.dataset.category;
   
-  // 防抖保存到后台
-  if (categoryOrder.length > 0) {
-    debouncedSaveCategoryOrder(categoryOrder);
+  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
+    const regularCategories = getRegularCategories();
+    const currentOrder = regularCategories.map(c => c.category);
+    
+    const fromIndex = currentOrder.indexOf(draggedCategory);
+    const toIndex = currentOrder.indexOf(targetCategory);
+    
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+      const newOrder = [...currentOrder];
+      newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, draggedCategory);
+      
+      // 立即更新本地状态和UI
+      categoryOrder = newOrder;
+      renderOverview();
+      
+      // 防抖保存到后台
+      debouncedSaveCategoryOrder(newOrder);
+    }
   }
 }
 
