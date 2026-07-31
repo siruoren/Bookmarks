@@ -722,12 +722,12 @@ function toggleNodeExpand(fullPath) {
 
 // 处理分类点击
 function handleCategoryClick(categoryPath, hasChildren) {
+  // 总是显示该分类的内容
+  showCategory(categoryPath);
+  
+  // 如果有子目录，同时也切换展开状态
   if (hasChildren) {
-    // 如果有子目录，切换展开状态
     toggleNodeExpand(categoryPath);
-  } else {
-    // 没有子目录，显示该分类的书签
-    showCategory(categoryPath);
   }
 }
 
