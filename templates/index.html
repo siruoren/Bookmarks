@@ -287,29 +287,37 @@ async function loadBookmarks(keyword) {
   // 搜索时直接从后端获取，不使用缓存
   if (keyword) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
       const url = '/api/bookmarks?q=' + encodeURIComponent(keyword);
-      const resp = await fetch(url);
+      const resp = await fetch(url, {signal: controller.signal});
+      clearTimeout(timeout);
       return await resp.json();
     } catch (e) {
-      console.error("搜索请求失败", e);
+      console.error("搜索请求失败或超时", e);
       return {categories: [], total: 0};
     }
   }
   
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    
     // 检查后端更新时间
-    const timeRes = await fetch('/api/update_time');
+    const timeRes = await fetch('/api/update_time', {signal: controller.signal});
     const timeData = await timeRes.json();
     const backendUpdateTime = timeData.last_update || 0;
     
     // 如果有缓存且缓存时间不晚于后端更新时间，使用缓存
     if (cachedBookmarks && cachedUpdateTime >= backendUpdateTime) {
+      clearTimeout(timeout);
       return cachedBookmarks;
     }
     
     // 否则从后端获取数据
-    const resp = await fetch('/api/bookmarks');
+    const resp = await fetch('/api/bookmarks', {signal: controller.signal});
     const data = await resp.json();
+    clearTimeout(timeout);
     
     // 更新缓存
     cachedBookmarks = data;
@@ -318,7 +326,7 @@ async function loadBookmarks(keyword) {
     
     return data;
   } catch (e) {
-    console.error("后端服务不可用，使用缓存数据", e);
+    console.error("后端服务不可用或超时，使用缓存数据", e);
     // 后端不可用时，如果有缓存则使用缓存
     if (cachedBookmarks) {
       return cachedBookmarks;
@@ -330,11 +338,14 @@ async function loadBookmarks(keyword) {
 
 async function loadRecent() {
   try {
-    const res = await fetch(`/api/recent?device_id=${encodeURIComponent(deviceId)}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(`/api/recent?device_id=${encodeURIComponent(deviceId)}`, {signal: controller.signal});
+    clearTimeout(timeout);
     const data = await res.json();
     recentData = data.items || [];
   } catch (e) {
-    console.error("加载最近常用失败", e);
+    console.error("加载最近常用失败或超时", e);
     recentData = [];
   }
 }
