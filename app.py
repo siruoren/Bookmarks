@@ -20,11 +20,14 @@ bookmarks_data: List[Dict] = []
 last_update: float = 0
 git_sync: Optional[GitSync] = None
 scheduler: Optional[Scheduler] = None
-recent_items: Dict[str, List[Dict]] = {}  # 改为按设备ID存储的字典
+recent_items: Dict[str, List[Dict]] = {}  # 改为按设备ID存储的字典（缓存）
 recent_max: int = 20
-recent_path: str = "./data/recent.json"
+recent_data_dir: str = "./data/recent"
 # 文件修改时间跟踪
 bookmark_file_mtimes: Dict[str, float] = {}
+# 目录顺序存储（按设备ID）
+category_order: Dict[str, List[str]] = {}  # 缓存
+category_order_data_dir: str = "./data/category_order"
 
 # 配置热加载相关
 config_path: str = "config.yml"
@@ -39,31 +42,128 @@ def load_config(path: str = "config.yml") -> dict:
         return yaml.safe_load(f)
 
 
+def get_category_order_file_path(device_id: str) -> str:
+    """获取指定设备的目录顺序文件路径"""
+    return os.path.join(category_order_data_dir, f"{device_id}.json")
+
+
+def load_category_order():
+    """加载目录顺序（兼容旧格式）"""
+    global category_order
+    try:
+        # 兼容旧的单文件格式
+        old_path = "./data/category_order.json"
+        if os.path.isfile(old_path):
+            with open(old_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    category_order = data
+                    # 迁移旧数据到新格式
+                    for device_id, order in category_order.items():
+                        save_device_category_order(device_id, order)
+                    logger.info("已迁移旧格式目录顺序到新格式")
+        
+        # 确保目录存在
+        os.makedirs(category_order_data_dir, exist_ok=True)
+        
+        # 加载新格式的设备文件
+        category_order = {}
+        for filename in os.listdir(category_order_data_dir):
+            if filename.endswith('.json'):
+                device_id = filename[:-5]  # 移除 .json
+                try:
+                    with open(os.path.join(category_order_data_dir, filename), "r", encoding="utf-8") as f:
+                        category_order[device_id] = json.load(f)
+                except Exception as e:
+                    logger.warning("加载设备 %s 的目录顺序失败: %s", device_id, e)
+                    
+    except Exception as e:
+        logger.warning("加载目录顺序失败: %s", e)
+        category_order = {}
+
+
+def save_device_category_order(device_id: str, order: List[str]):
+    """保存指定设备的目录顺序"""
+    try:
+        os.makedirs(category_order_data_dir, exist_ok=True)
+        with open(get_category_order_file_path(device_id), "w", encoding="utf-8") as f:
+            json.dump(order, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning("保存设备 %s 的目录顺序失败: %s", device_id, e)
+
+
+def save_category_order():
+    """保存目录顺序（兼容旧接口）"""
+    # 这个函数现在只用于兼容，实际保存使用 save_device_category_order
+    pass
+
+
+def cleanup_category_order(current_categories: List[str]):
+    """清理不存在的目录顺序"""
+    global category_order
+    current_set = set(current_categories)
+    for device_id in list(category_order.keys()):
+        # 只保留当前存在的目录
+        category_order[device_id] = [cat for cat in category_order[device_id] if cat in current_set]
+        save_device_category_order(device_id, category_order[device_id])
+
+
+def get_recent_file_path(device_id: str) -> str:
+    """获取指定设备的最近访问记录文件路径"""
+    return os.path.join(recent_data_dir, f"{device_id}.json")
+
+
 def load_recent():
-    """加载最近访问记录"""
+    """加载最近访问记录（兼容旧格式）"""
     global recent_items
     try:
-        if os.path.isfile(recent_path):
-            with open(recent_path, "r", encoding="utf-8") as f:
+        # 兼容旧的单文件格式
+        old_path = "./data/recent.json"
+        if os.path.isfile(old_path):
+            with open(old_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # 兼容旧格式（列表）和新格式（字典）
                 if isinstance(data, list):
                     recent_items = {"default": data}
                 else:
                     recent_items = data
+                # 迁移旧数据到新格式
+                for device_id, items in recent_items.items():
+                    save_device_recent(device_id, items)
+                logger.info("已迁移旧格式数据到新格式")
+        
+        # 确保目录存在
+        os.makedirs(recent_data_dir, exist_ok=True)
+        
+        # 加载新格式的设备文件
+        recent_items = {}
+        for filename in os.listdir(recent_data_dir):
+            if filename.endswith('.json'):
+                device_id = filename[:-5]  # 移除 .json
+                try:
+                    with open(os.path.join(recent_data_dir, filename), "r", encoding="utf-8") as f:
+                        recent_items[device_id] = json.load(f)
+                except Exception as e:
+                    logger.warning("加载设备 %s 的最近访问记录失败: %s", device_id, e)
+                    
     except Exception as e:
         logger.warning("加载最近访问记录失败: %s", e)
         recent_items = {}
 
 
-def save_recent():
-    """保存最近访问记录"""
+def save_device_recent(device_id: str, items: List[Dict]):
+    """保存指定设备的最近访问记录"""
     try:
-        os.makedirs(os.path.dirname(recent_path), exist_ok=True)
-        with open(recent_path, "w", encoding="utf-8") as f:
-            json.dump(recent_items, f, ensure_ascii=False, indent=2)
+        os.makedirs(recent_data_dir, exist_ok=True)
+        with open(get_recent_file_path(device_id), "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.warning("保存最近访问记录失败: %s", e)
+        logger.warning("保存设备 %s 的最近访问记录失败: %s", device_id, e)
+
+
+def save_recent():
+    """保存最近访问记录（兼容旧接口）"""
+    # 这个函数现在只用于兼容，实际保存使用 save_device_recent
+    pass
 
 
 def add_recent(title: str, url: str, category: str = "", device_id: str = "default"):
@@ -82,7 +182,7 @@ def add_recent(title: str, url: str, category: str = "", device_id: str = "defau
     })
     device_items = device_items[:recent_max]
     recent_items[device_id] = device_items
-    save_recent()
+    save_device_recent(device_id, device_items)
 
 
 def get_device_recent(device_id: str) -> List[Dict]:
@@ -150,6 +250,10 @@ def refresh_bookmarks() -> bool:
         bookmarks_data = new_data
         last_update = time.time()
         logger.info("书签数据已更新, 共 %d 个分类", len(bookmarks_data))
+        
+        # 清理不存在的目录顺序
+        current_categories = [cat["category"] for cat in bookmarks_data]
+        cleanup_category_order(current_categories)
     
     return True
 
@@ -233,6 +337,7 @@ def init_app(path: str = "config.yml"):
 
     config = load_config(path)
     load_recent()
+    load_category_order()
     apply_config(config)
 
 
@@ -305,7 +410,7 @@ def api_recent_pin():
                     # 取消置顶时移到未置顶区域
                     recent_items[device_id] = [r for r in device_items if r["url"] != url] + [item]
                 break
-        save_recent()
+        save_device_recent(device_id, recent_items[device_id])
     return jsonify({"ok": True})
 
 
@@ -330,7 +435,7 @@ def api_recent_reorder():
         
         # 合并
         recent_items[device_id] = new_pinned + unpinned
-        save_recent()
+        save_device_recent(device_id, recent_items[device_id])
     return jsonify({"ok": True})
 
 
@@ -342,7 +447,7 @@ def api_recent_delete():
     device_id = data.get("device_id", "default")
     if url and device_id in recent_items:
         recent_items[device_id] = [r for r in recent_items[device_id] if r["url"] != url]
-        save_recent()
+        save_device_recent(device_id, recent_items[device_id])
     return jsonify({"ok": True})
 
 
@@ -354,3 +459,24 @@ def api_config_reload():
         return jsonify({"ok": True, "message": "配置已重新加载"})
     except Exception as e:
         return jsonify({"ok": False, "message": str(e)}), 500
+
+
+@app.route("/api/category_order", methods=["GET"])
+def api_category_order():
+    """获取目录顺序"""
+    device_id = request.args.get("device_id", "")
+    if device_id and device_id in category_order:
+        return jsonify({"order": category_order[device_id]})
+    return jsonify({"order": []})
+
+
+@app.route("/api/category_order", methods=["POST"])
+def api_category_order_save():
+    """保存目录顺序"""
+    data = request.get_json(silent=True) or {}
+    order = data.get("order", [])
+    device_id = data.get("device_id", "")
+    if order and device_id:
+        category_order[device_id] = order
+        save_device_category_order(device_id, order)
+    return jsonify({"ok": True})

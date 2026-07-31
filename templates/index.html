@@ -79,9 +79,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .sidebar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 2px; }
 .sidebar-header { padding: 16px 18px 10px; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid var(--border); }
 .sidebar-menu { flex: 1; padding: 6px 0; }
-.menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; font-size: 13.5px; color: var(--text); cursor: pointer; transition: all .15s; border-left: 3px solid transparent; text-decoration: none; }
-.menu-item:hover { background: var(--primary-light); color: var(--primary); }
-.menu-item.active { background: var(--primary-light); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
+.menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
+.menu-item:hover { background: var(--primary-light); }
+.menu-item.active { background: var(--primary); color: #fff; }
+.menu-item.dragging { opacity: 0.5; }
+.menu-item.drag-over { background: var(--primary-light); border: 2px dashed var(--primary); }
 .menu-item .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .menu-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-item .cnt { margin-left: auto; font-size: 11px; color: var(--text2); background: var(--bg); padding: 1px 7px; border-radius: 10px; flex-shrink: 0; }
@@ -116,8 +118,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 /* 分类视图 - 首页概览 */
 .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.overview-card { background: var(--card); border-radius: var(--radius); padding: 18px 16px; box-shadow: var(--shadow); cursor: pointer; transition: all .2s; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.overview-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,106,191,.12); }
+.overview-card { background: var(--card); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .2s; border: 1px solid var(--border); box-shadow: var(--shadow); user-select: none; }
+.overview-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(91,106,191,.15); }
+.overview-card.dragging { opacity: 0.5; }
+.overview-card.drag-over { border: 2px dashed var(--primary); background: var(--primary-light); }
 .overview-card .oc-icon { font-size: 26px; }
 .overview-card .oc-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; }
 .overview-card .oc-count { font-size: 12px; color: var(--text2); }
@@ -267,6 +271,58 @@ let cachedUpdateTime = 0; // 缓存的后端更新时间
 const getWeatherCityKey = () => `weather_city_${deviceId}`;
 let weatherCity = localStorage.getItem(getWeatherCityKey()) || '';
 let weatherData = null;
+
+// 目录顺序相关
+let categoryOrder = [];
+
+async function loadCategoryOrder() {
+  try {
+    const res = await fetch(`/api/category_order?device_id=${encodeURIComponent(deviceId)}`);
+    const data = await res.json();
+    categoryOrder = data.order || [];
+  } catch (e) {
+    console.error("加载目录顺序失败", e);
+    categoryOrder = [];
+  }
+}
+
+async function saveCategoryOrder(order) {
+  try {
+    await fetch('/api/category_order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({order, device_id: deviceId})
+    });
+    categoryOrder = order;
+  } catch (e) {
+    console.error("保存目录顺序失败", e);
+  }
+}
+
+function applyCategoryOrder(categories) {
+  if (categoryOrder.length === 0) {
+    return categories;
+  }
+  
+  // 按自定义顺序排序，未在顺序中的放在最后
+  const ordered = [];
+  const remaining = [];
+  
+  // 先按顺序添加
+  for (const catName of categoryOrder) {
+    const cat = categories.find(c => c.category === catName);
+    if (cat) ordered.push(cat);
+  }
+  
+  // 添加未在顺序中的
+  for (const cat of categories) {
+    if (!categoryOrder.includes(cat.category)) {
+      remaining.push(cat);
+    }
+  }
+  
+  return ordered.concat(remaining);
+}
 
 // 主题相关
 function initTheme() {
@@ -561,15 +617,23 @@ async function recordVisit(title, url, category) {
 function renderSidebar(categories) {
   const menu = document.getElementById('sidebarMenu');
   const regularCategories = getRegularCategories();
+  const orderedCategories = applyCategoryOrder(regularCategories);
   
   let html = `<div class="menu-item ${currentCat === null && !isSearchMode ? 'active' : ''}" onclick="showAll()">
     <span class="icon">🏠</span><span class="label">全部目录</span>
     <span class="cnt">${regularCategories.reduce((s,c) => s + c.items.length, 0)}</span>
   </div>`;
-  regularCategories.forEach((cat, i) => {
+  orderedCategories.forEach((cat, i) => {
     const name = escHtml(cat.category);
     const shortName = name.split(' / ').pop();
-    html += `<div class="menu-item ${currentCat === i && !isSearchMode ? 'active' : ''}" onclick="showCategory(${i})">
+    html += `<div class="menu-item ${currentCat === i && !isSearchMode ? 'active' : ''}" 
+             draggable="true" 
+             data-category="${escAttr(cat.category)}"
+             onclick="showCategory(${i})"
+             ondragstart="handleDragStart(event)"
+             ondragover="handleDragOver(event)"
+             ondrop="handleDrop(event)"
+             ondragend="handleDragEnd(event)">
       <span class="icon ico-${i % 8}">${catIcon(i)}</span>
       <span class="label" title="${name}">${escHtml(shortName)}</span>
       <span class="cnt">${cat.items.length}</span>
@@ -654,11 +718,19 @@ function renderOverview() {
 
   // 目录卡片
   const regularCategories = getRegularCategories();
+  const orderedCategories = applyCategoryOrder(regularCategories);
   html += '<div class="overview-grid">';
-  regularCategories.forEach((cat, i) => {
+  orderedCategories.forEach((cat, i) => {
     const name = escHtml(cat.category);
     const shortName = name.split(' / ').pop();
-    html += `<div class="overview-card" onclick="showCategory(${i})">
+    html += `<div class="overview-card" 
+             draggable="true" 
+             data-category="${escAttr(cat.category)}"
+             onclick="showCategory(${i})"
+             ondragstart="handleCardDragStart(event)"
+             ondragover="handleCardDragOver(event)"
+             ondrop="handleCardDrop(event)"
+             ondragend="handleCardDragEnd(event)">
       <span class="oc-icon ico-${i % 8}">${catIcon(i)}</span>
       <span class="oc-name">${escHtml(shortName)}</span>
       <span class="oc-count">${cat.items.length} 个书签</span>
@@ -739,7 +811,7 @@ async function init() {
   }
   
   // 然后在后台检查更新
-  const [data] = await Promise.all([loadBookmarks(), loadRecent()]);
+  const [data] = await Promise.all([loadBookmarks(), loadRecent(), loadCategoryOrder()]);
   allCategories = data.categories || [];
   renderSidebar(allCategories);
   renderOverview();
@@ -771,6 +843,105 @@ function getRootBookmarks() {
 // 获取普通分类（排除根书签）
 function getRegularCategories() {
   return allCategories.filter(c => c.category !== '__root_bookmarks__');
+}
+
+// 拖拽相关
+let draggedCategory = null;
+
+function handleDragStart(event) {
+  draggedCategory = event.target.dataset.category;
+  event.target.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  event.target.closest('.menu-item')?.classList.add('drag-over');
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  const targetItem = event.target.closest('.menu-item');
+  if (!targetItem) return;
+  
+  targetItem.classList.remove('drag-over');
+  const targetCategory = targetItem.dataset.category;
+  
+  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
+    // 更新顺序
+    const regularCategories = getRegularCategories();
+    const currentOrder = regularCategories.map(c => c.category);
+    
+    const fromIndex = currentOrder.indexOf(draggedCategory);
+    const toIndex = currentOrder.indexOf(targetCategory);
+    
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const newOrder = [...currentOrder];
+      newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, draggedCategory);
+      
+      saveCategoryOrder(newOrder).then(() => {
+        renderSidebar(allCategories);
+      });
+    }
+  }
+}
+
+function handleDragEnd(event) {
+  event.target.classList.remove('dragging');
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+  draggedCategory = null;
+}
+
+// 概览卡片拖拽
+function handleCardDragStart(event) {
+  draggedCategory = event.target.dataset.category;
+  event.target.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function handleCardDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  event.target.closest('.overview-card')?.classList.add('drag-over');
+}
+
+function handleCardDrop(event) {
+  event.preventDefault();
+  const targetCard = event.target.closest('.overview-card');
+  if (!targetCard) return;
+  
+  targetCard.classList.remove('drag-over');
+  const targetCategory = targetCard.dataset.category;
+  
+  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
+    const regularCategories = getRegularCategories();
+    const currentOrder = regularCategories.map(c => c.category);
+    
+    const fromIndex = currentOrder.indexOf(draggedCategory);
+    const toIndex = currentOrder.indexOf(targetCategory);
+    
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const newOrder = [...currentOrder];
+      newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, draggedCategory);
+      
+      saveCategoryOrder(newOrder).then(() => {
+        renderOverview();
+      });
+    }
+  }
+}
+
+function handleCardDragEnd(event) {
+  event.target.classList.remove('dragging');
+  document.querySelectorAll('.overview-card').forEach(card => {
+    card.classList.remove('drag-over');
+  });
+  draggedCategory = null;
 }
 
 // 搜索
