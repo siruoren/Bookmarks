@@ -67,8 +67,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .recent-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(91,106,191,.15); color: var(--primary); }
 .recent-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
 .recent-item .delete-btn { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #e74c3c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
+.recent-item .pin-btn { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: #f39c12; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
+.recent-item.pinned .pin-btn { background: #e67e22; }
 .recent-item.show-delete .delete-btn { display: flex; }
+.recent-item.show-delete .pin-btn { display: flex; }
 .recent-item.show-delete .recent-content { animation: shake 0.5s ease-in-out infinite; }
+.recent-item.dragging { opacity: 0.5; }
+.recent-item.drag-over { border: 2px dashed var(--primary); }
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -310,14 +315,32 @@ function renderOverview() {
 
   // 最近常用
   if (recentData.length > 0) {
+    // 分离置顶和未置顶
+    const pinned = recentData.filter(item => item.pinned);
+    const unpinned = recentData.filter(item => !item.pinned);
+    
     html += '<div class="recent-section"><h2>⭐ 最近常用</h2><div class="recent-grid">';
-    recentData.forEach((item, index) => {
-      html += `<div class="recent-item" data-url="${escAttr(item.url)}" data-index="${index}">
+    
+    // 渲染置顶项
+    pinned.forEach((item, index) => {
+      html += `<div class="recent-item pinned" data-url="${escAttr(item.url)}" data-index="${index}" draggable="true">
         <span class="delete-btn" onclick="deleteRecent(event, '${escJs(item.url)}')">&times;</span>
+        <span class="pin-btn" onclick="togglePin(event, '${escJs(item.url)}', false)">&#128274;</span>
         <span class="dot"></span>
         <span class="recent-content">${escHtml(cleanTitle(item.title, item.url))}</span>
       </div>`;
     });
+    
+    // 渲染未置顶项
+    unpinned.forEach((item, index) => {
+      html += `<div class="recent-item" data-url="${escAttr(item.url)}" data-index="${index}">
+        <span class="delete-btn" onclick="deleteRecent(event, '${escJs(item.url)}')">&times;</span>
+        <span class="pin-btn" onclick="togglePin(event, '${escJs(item.url)}', true)">&#128205;</span>
+        <span class="dot"></span>
+        <span class="recent-content">${escHtml(cleanTitle(item.title, item.url))}</span>
+      </div>`;
+    });
+    
     html += '</div></div>';
   }
 
@@ -461,11 +484,20 @@ function setupLongPress() {
     item.addEventListener('mouseleave', cancelLongPress);
     item.addEventListener('touchend', cancelLongPress);
     item.addEventListener('click', handleRecentClick);
+    
+    // 拖拽事件（仅置顶项）
+    if (item.classList.contains('pinned')) {
+      item.addEventListener('dragstart', handleDragStart);
+      item.addEventListener('dragend', handleDragEnd);
+      item.addEventListener('dragover', handleDragOver);
+      item.addEventListener('dragleave', handleDragLeave);
+      item.addEventListener('drop', handleDrop);
+    }
   });
 }
 
 function startLongPress(e) {
-  if (e.target.classList.contains('delete-btn')) return;
+  if (e.target.classList.contains('delete-btn') || e.target.classList.contains('pin-btn')) return;
   
   wasLongPress = false;
   longPressElement = e.currentTarget;
@@ -524,6 +556,86 @@ async function deleteRecent(event, url) {
   
   await loadRecent();
   renderOverview();
+}
+
+// 置顶/取消置顶
+async function togglePin(event, url, pin) {
+  event.stopPropagation();
+  event.preventDefault();
+  
+  await fetch('/api/recent/pin', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url, pin})
+  });
+  
+  await loadRecent();
+  renderOverview();
+}
+
+// 拖拽相关
+let draggedItem = null;
+
+function handleDragStart(e) {
+  draggedItem = e.currentTarget;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', e.currentTarget.dataset.url);
+}
+
+function handleDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.recent-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+  draggedItem = null;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (e.currentTarget !== draggedItem && e.currentTarget.classList.contains('pinned')) {
+    e.currentTarget.classList.add('drag-over');
+  }
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  
+  if (e.currentTarget === draggedItem || !e.currentTarget.classList.contains('pinned')) {
+    return;
+  }
+  
+  const draggedUrl = draggedItem.dataset.url;
+  const targetUrl = e.currentTarget.dataset.url;
+  
+  // 获取当前置顶项的URL顺序
+  const pinnedItems = document.querySelectorAll('.recent-item.pinned');
+  const urls = Array.from(pinnedItems).map(item => item.dataset.url);
+  
+  // 重新排序
+  const draggedIndex = urls.indexOf(draggedUrl);
+  const targetIndex = urls.indexOf(targetUrl);
+  
+  if (draggedIndex !== -1 && targetIndex !== -1) {
+    urls.splice(draggedIndex, 1);
+    urls.splice(targetIndex, 0, draggedUrl);
+    
+    // 保存新顺序
+    await fetch('/api/recent/reorder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({urls})
+    });
+    
+    await loadRecent();
+    renderOverview();
+  }
 }
 
 // 工具函数

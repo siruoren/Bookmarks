@@ -281,6 +281,52 @@ def api_search():
     })
 
 
+@app.route("/api/recent/pin", methods=["POST"])
+def api_recent_pin():
+    """置顶/取消置顶最近常用项"""
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "")
+    pin = data.get("pin", True)
+    if url:
+        global recent_items
+        for item in recent_items:
+            if item["url"] == url:
+                item["pinned"] = pin
+                if pin:
+                    # 置顶时移到最前面
+                    recent_items = [item] + [r for r in recent_items if r["url"] != url]
+                else:
+                    # 取消置顶时移到未置顶区域
+                    recent_items = [r for r in recent_items if r["url"] != url] + [item]
+                break
+        save_recent()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/recent/reorder", methods=["POST"])
+def api_recent_reorder():
+    """重新排序置顶项"""
+    data = request.get_json(silent=True) or {}
+    urls = data.get("urls", [])
+    if urls:
+        global recent_items
+        # 分离置顶和未置顶
+        pinned = [r for r in recent_items if r.get("pinned", False)]
+        unpinned = [r for r in recent_items if not r.get("pinned", False)]
+        
+        # 按新的URL顺序重新排列置顶项
+        pinned_dict = {r["url"]: r for r in pinned}
+        new_pinned = []
+        for url in urls:
+            if url in pinned_dict:
+                new_pinned.append(pinned_dict[url])
+        
+        # 合并
+        recent_items = new_pinned + unpinned
+        save_recent()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/recent/delete", methods=["POST"])
 def api_recent_delete():
     """删除最近常用项"""
