@@ -19,6 +19,18 @@
   --shadow: 0 2px 8px rgba(91,106,191,.08);
   --radius: 10px;
 }
+
+[data-theme="dark"] {
+  --primary: #7b8ad6;
+  --primary-light: #2a2a4a;
+  --primary-dark: #5b6abf;
+  --bg: #1a1a2e;
+  --card: #252540;
+  --text: #e0e0e0;
+  --text2: #a0a0b0;
+  --border: #3a3a50;
+  --shadow: 0 2px 8px rgba(0,0,0,.3);
+}
 html, body { height: 100%; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
 
@@ -37,6 +49,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .header .refresh-btn:hover { background: rgba(255,255,255,.3); }
 .search-icon-btn { display: none; background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 8px; }
 .header .right-col { display: flex; align-items: center; gap: 12px; justify-self: end; }
+.theme-toggle { background: rgba(255,255,255,.18); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 18px; transition: background .2s; }
+.theme-toggle:hover { background: rgba(255,255,255,.3); }
 
 /* 日历 */
 .calendar { color: #fff; font-size: 13px; text-align: center; line-height: 1.2; white-space: nowrap; }
@@ -204,6 +218,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
       <span class="weather-temp" id="weatherTemp">--°</span>
       <input type="text" class="weather-city-input" id="weatherCityInput" placeholder="输入城市" onkeypress="handleCityInput(event)">
     </div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">&#127769;</button>
     <button class="refresh-btn" onclick="location.reload()">&#8635; <span>刷新</span></button>
   </div>
 </div>
@@ -244,6 +259,45 @@ let cachedUpdateTime = 0; // 缓存的后端更新时间
 const getWeatherCityKey = () => `weather_city_${deviceId}`;
 let weatherCity = localStorage.getItem(getWeatherCityKey()) || '';
 let weatherData = null;
+
+// 主题相关
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+  } else {
+    // 检测系统主题偏好
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = prefersDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    updateThemeIcon(theme);
+    
+    // 监听系统主题变化
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('theme')) {
+        const newTheme = e.matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        updateThemeIcon(newTheme);
+      }
+    });
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('themeToggle');
+  if (icon) {
+    icon.textContent = theme === 'dark' ? '&#9728;' : '&#127769;'; // 太阳/月亮
+  }
+}
 
 // 从 localStorage 读取缓存
 function loadFromLocalStorage() {
@@ -702,6 +756,9 @@ async function init() {
   
   // 自动聚焦搜索框
   document.getElementById('searchInput').focus();
+  
+  // 初始化主题
+  initTheme();
   
   // 初始化日历和天气
   updateCalendar();
