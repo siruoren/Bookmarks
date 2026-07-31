@@ -48,25 +48,13 @@ def get_category_order_file_path(device_id: str) -> str:
 
 
 def load_category_order():
-    """加载目录顺序（兼容旧格式）"""
+    """加载目录顺序"""
     global category_order
     try:
-        # 兼容旧的单文件格式
-        old_path = "./data/category_order.json"
-        if os.path.isfile(old_path):
-            with open(old_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    category_order = data
-                    # 迁移旧数据到新格式
-                    for device_id, order in category_order.items():
-                        save_device_category_order(device_id, order)
-                    logger.info("已迁移旧格式目录顺序到新格式")
-        
         # 确保目录存在
         os.makedirs(category_order_data_dir, exist_ok=True)
         
-        # 加载新格式的设备文件
+        # 加载设备文件
         category_order = {}
         for filename in os.listdir(category_order_data_dir):
             if filename.endswith('.json'):
@@ -114,27 +102,13 @@ def get_recent_file_path(device_id: str) -> str:
 
 
 def load_recent():
-    """加载最近访问记录（兼容旧格式）"""
+    """加载最近访问记录"""
     global recent_items
     try:
-        # 兼容旧的单文件格式
-        old_path = "./data/recent.json"
-        if os.path.isfile(old_path):
-            with open(old_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    recent_items = {"default": data}
-                else:
-                    recent_items = data
-                # 迁移旧数据到新格式
-                for device_id, items in recent_items.items():
-                    save_device_recent(device_id, items)
-                logger.info("已迁移旧格式数据到新格式")
-        
         # 确保目录存在
         os.makedirs(recent_data_dir, exist_ok=True)
         
-        # 加载新格式的设备文件
+        # 加载设备文件
         recent_items = {}
         for filename in os.listdir(recent_data_dir):
             if filename.endswith('.json'):
@@ -277,10 +251,6 @@ def apply_config(config: dict):
         # 最近访问配置
         recent_cfg = config.get("recent", {})
         recent_max = recent_cfg.get("max_count", 20)
-        new_recent_path = recent_cfg.get("storage_path", "./data/recent.json")
-        if new_recent_path != recent_path:
-            recent_path = new_recent_path
-            load_recent()
 
         # 停止旧调度器
         if scheduler:
