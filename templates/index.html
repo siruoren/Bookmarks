@@ -74,10 +74,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .main { display: flex; flex: 1; overflow: hidden; }
 
 /* === 左侧栏 === */
-.sidebar { width: var(--sidebar-w); background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar { width: var(--sidebar-w); background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; transition: width 0.3s ease; }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 2px; }
-.sidebar-header { padding: 16px 18px 10px; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid var(--border); }
+.sidebar.collapsed { width: 0; border-right: none; }
+.sidebar-header { padding: 16px 18px 10px; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.sidebar-header .collapse-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: background .2s; }
+.sidebar-header .collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
 .sidebar-menu { flex: 1; padding: 6px 0; }
 .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
 .menu-item:hover { background: var(--primary-light); }
@@ -235,7 +238,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 <div class="main">
   <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">目录导航</div>
+    <div class="sidebar-header">
+      <span>目录导航</span>
+      <button class="collapse-btn" onclick="toggleSidebarCollapse()" title="收起/展开侧边栏">◀</button>
+    </div>
     <div class="sidebar-menu" id="sidebarMenu"></div>
   </div>
   <div class="content" id="content">
@@ -294,6 +300,27 @@ function toggleTheme() {
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', newTheme);
   localStorage.setItem('theme', newTheme);
+}
+
+// 侧边栏折叠相关
+function initSidebarCollapse() {
+  const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+  if (collapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+  }
+}
+
+function toggleSidebarCollapse() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('collapsed');
+  const collapsed = sidebar.classList.contains('collapsed');
+  localStorage.setItem('sidebar_collapsed', collapsed);
+  
+  // 更新按钮图标
+  const collapseBtn = document.querySelector('.collapse-btn');
+  if (collapseBtn) {
+    collapseBtn.textContent = collapsed ? '▶' : '◀';
+  }
 }
 
 // 从 localStorage 读取缓存
@@ -762,6 +789,9 @@ async function init() {
   
   // 初始化主题
   initTheme();
+  
+  // 初始化侧边栏折叠状态
+  initSidebarCollapse();
   
   // 初始化日历和天气
   updateCalendar();
