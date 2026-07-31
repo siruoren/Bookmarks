@@ -79,11 +79,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .sidebar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 2px; }
 .sidebar-header { padding: 16px 18px 10px; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid var(--border); }
 .sidebar-menu { flex: 1; padding: 6px 0; }
-.menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
+.menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s, transform 0.2s ease; user-select: none; }
 .menu-item:hover { background: var(--primary-light); }
 .menu-item.active { background: var(--primary); color: #fff; }
-.menu-item.dragging { opacity: 0.5; }
+.menu-item.dragging { opacity: 0.5; transform: scale(1.05); }
 .menu-item.drag-over { background: var(--primary-light); border: 2px dashed var(--primary); }
+.menu-item.moving { transition: transform 0.2s ease; }
 .menu-item .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 .menu-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-item .cnt { margin-left: auto; font-size: 11px; color: var(--text2); background: var(--bg); padding: 1px 7px; border-radius: 10px; flex-shrink: 0; }
@@ -118,10 +119,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 
 /* 分类视图 - 首页概览 */
 .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.overview-card { background: var(--card); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .2s; border: 1px solid var(--border); box-shadow: var(--shadow); user-select: none; }
+.overview-card { background: var(--card); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .2s, transform 0.2s ease; border: 1px solid var(--border); box-shadow: var(--shadow); user-select: none; }
 .overview-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(91,106,191,.15); }
-.overview-card.dragging { opacity: 0.5; }
+.overview-card.dragging { opacity: 0.5; transform: scale(1.05); }
 .overview-card.drag-over { border: 2px dashed var(--primary); background: var(--primary-light); }
+.overview-card.moving { transition: transform 0.2s ease; }
 .overview-card .oc-icon { font-size: 26px; }
 .overview-card .oc-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; }
 .overview-card .oc-count { font-size: 12px; color: var(--text2); }
@@ -864,17 +866,52 @@ function getRegularCategories() {
 
 // 拖拽相关
 let draggedCategory = null;
+let draggedElement = null;
+let dragPlaceholder = null;
 
 function handleDragStart(event) {
   draggedCategory = event.target.dataset.category;
+  draggedElement = event.target;
   event.target.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setDragImage(event.target, 0, 0);
 }
 
 function handleDragOver(event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
-  event.target.closest('.menu-item')?.classList.add('drag-over');
+  
+  const targetItem = event.target.closest('.menu-item');
+  if (!targetItem || targetItem === draggedElement) return;
+  
+  const targetCategory = targetItem.dataset.category;
+  if (draggedCategory === targetCategory) return;
+  
+  // 计算插入位置
+  const regularCategories = getRegularCategories();
+  const currentOrder = regularCategories.map(c => c.category);
+  
+  const fromIndex = currentOrder.indexOf(draggedCategory);
+  const toIndex = currentOrder.indexOf(targetCategory);
+  
+  if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+    const newOrder = [...currentOrder];
+    newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, draggedCategory);
+    
+    // 实时更新本地顺序
+    categoryOrder = newOrder;
+    
+    // 重新渲染以显示实时位置变化
+    renderSidebar(allCategories);
+    
+    // 恢复拖拽状态
+    const newDraggedElement = document.querySelector(`[data-category="${escAttr(draggedCategory)}"]`);
+    if (newDraggedElement) {
+      newDraggedElement.classList.add('dragging');
+      draggedElement = newDraggedElement;
+    }
+  }
 }
 
 function handleDrop(event) {
@@ -883,28 +920,10 @@ function handleDrop(event) {
   if (!targetItem) return;
   
   targetItem.classList.remove('drag-over');
-  const targetCategory = targetItem.dataset.category;
   
-  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
-    // 更新本地顺序
-    const regularCategories = getRegularCategories();
-    const currentOrder = regularCategories.map(c => c.category);
-    
-    const fromIndex = currentOrder.indexOf(draggedCategory);
-    const toIndex = currentOrder.indexOf(targetCategory);
-    
-    if (fromIndex !== -1 && toIndex !== -1) {
-      const newOrder = [...currentOrder];
-      newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, draggedCategory);
-      
-      // 立即更新本地状态和UI
-      categoryOrder = newOrder;
-      renderSidebar(allCategories);
-      
-      // 防抖保存到后台
-      debouncedSaveCategoryOrder(newOrder);
-    }
+  // 防抖保存到后台
+  if (categoryOrder.length > 0) {
+    debouncedSaveCategoryOrder(categoryOrder);
   }
 }
 
@@ -914,19 +933,53 @@ function handleDragEnd(event) {
     item.classList.remove('drag-over');
   });
   draggedCategory = null;
+  draggedElement = null;
 }
 
 // 概览卡片拖拽
 function handleCardDragStart(event) {
   draggedCategory = event.target.dataset.category;
+  draggedElement = event.target;
   event.target.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setDragImage(event.target, 0, 0);
 }
 
 function handleCardDragOver(event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
-  event.target.closest('.overview-card')?.classList.add('drag-over');
+  
+  const targetCard = event.target.closest('.overview-card');
+  if (!targetCard || targetCard === draggedElement) return;
+  
+  const targetCategory = targetCard.dataset.category;
+  if (draggedCategory === targetCategory) return;
+  
+  // 计算插入位置
+  const regularCategories = getRegularCategories();
+  const currentOrder = regularCategories.map(c => c.category);
+  
+  const fromIndex = currentOrder.indexOf(draggedCategory);
+  const toIndex = currentOrder.indexOf(targetCategory);
+  
+  if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+    const newOrder = [...currentOrder];
+    newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, draggedCategory);
+    
+    // 实时更新本地顺序
+    categoryOrder = newOrder;
+    
+    // 重新渲染以显示实时位置变化
+    renderOverview();
+    
+    // 恢复拖拽状态
+    const newDraggedElement = document.querySelector(`.overview-card[data-category="${escAttr(draggedCategory)}"]`);
+    if (newDraggedElement) {
+      newDraggedElement.classList.add('dragging');
+      draggedElement = newDraggedElement;
+    }
+  }
 }
 
 function handleCardDrop(event) {
@@ -935,27 +988,10 @@ function handleCardDrop(event) {
   if (!targetCard) return;
   
   targetCard.classList.remove('drag-over');
-  const targetCategory = targetCard.dataset.category;
   
-  if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
-    const regularCategories = getRegularCategories();
-    const currentOrder = regularCategories.map(c => c.category);
-    
-    const fromIndex = currentOrder.indexOf(draggedCategory);
-    const toIndex = currentOrder.indexOf(targetCategory);
-    
-    if (fromIndex !== -1 && toIndex !== -1) {
-      const newOrder = [...currentOrder];
-      newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, draggedCategory);
-      
-      // 立即更新本地状态和UI
-      categoryOrder = newOrder;
-      renderOverview();
-      
-      // 防抖保存到后台
-      debouncedSaveCategoryOrder(newOrder);
-    }
+  // 防抖保存到后台
+  if (categoryOrder.length > 0) {
+    debouncedSaveCategoryOrder(categoryOrder);
   }
 }
 
@@ -965,6 +1001,7 @@ function handleCardDragEnd(event) {
     card.classList.remove('drag-over');
   });
   draggedCategory = null;
+  draggedElement = null;
 }
 
 // 搜索
