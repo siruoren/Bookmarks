@@ -648,12 +648,15 @@ function buildCategoryTree(categories) {
           category: cat,
           hasBookmarks: index === path.length - 1
         };
-      } else if (index === path.length - 1) {
-        // 如果这个节点已经存在但现在是叶子节点，标记为有书签
+      }
+      
+      // 如果这是叶子节点，确保标记为有书签
+      if (index === path.length - 1) {
         current[segment].isLeaf = true;
         current[segment].hasBookmarks = true;
         current[segment].category = cat;
       }
+      
       current = current[segment].children;
     });
   });
@@ -683,7 +686,7 @@ function renderCategoryTree(tree, level, parentPath = '') {
                onclick="handleCategoryClick('${escJs(node.fullPath)}', ${hasChildren})">
         <span class="icon">${icon}</span>
         <span class="label">${escHtml(name)}</span>
-        ${node.hasBookmarks ? `<span class="cnt">${node.category.items.length}</span>` : ''}
+        ${node.hasBookmarks && node.category ? `<span class="cnt">${node.category.items.length}</span>` : ''}
       </div>`;
       
       // 递归渲染子节点（只有展开时才显示）
@@ -774,6 +777,14 @@ function showCategory(categoryName) {
         virtual: true // 标记为虚拟分类
       };
       renderCategoryDetail(virtualCategory, regularCategories);
+    } else {
+      // 没有找到匹配，显示空状态
+      const content = document.getElementById('content');
+      content.innerHTML = `<div class="category-title">
+        <span class="back-btn" onclick="showAll()">← 返回</span>
+        <span>${escHtml(categoryName)}</span>
+      </div>
+      <div class="category-subtitle">该目录下没有书签</div>`;
     }
   }
   closeSidebar();
@@ -863,12 +874,12 @@ function renderCategoryDetail(cat, categories) {
 
   let html = `<div class="category-title">
     <span class="back-btn" onclick="showAll()">← 返回</span>
-    <span class="ico-${idx % 8}">${catIcon(idx)}</span> ${name}
+    <span class="ico-${idx >= 0 ? idx % 8 : 0}">${catIcon(idx >= 0 ? idx : 0)}</span> ${name}
   </div>
   <div class="category-subtitle">${cat.items.length} 个书签${subdirectories.length > 0 ? `, ${subdirectories.length} 个子目录` : ''}</div>`;
 
   // 先显示书签
-  if (cat.items.length > 0) {
+  if (cat.items && cat.items.length > 0) {
     html += '<div class="bookmark-grid">';
     cat.items.forEach(item => {
       const t = escHtml(cleanTitle(item.title, item.url));
@@ -888,7 +899,7 @@ function renderCategoryDetail(cat, categories) {
       const subName = escHtml(subcat.category.split(' / ').pop());
       const subIdx = categories.findIndex(c => c.category === subcat.category);
       html += `<div class="subdirectory-card" onclick="showCategory('${escJs(subcat.category)}')">
-        <span class="subdir-icon ico-${subIdx % 8}">${catIcon(subIdx)}</span>
+        <span class="subdir-icon ico-${subIdx >= 0 ? subIdx % 8 : i % 8}">${catIcon(subIdx >= 0 ? subIdx : i)}</span>
         <span class="subdir-name">${subName}</span>
         <span class="subdir-count">${subcat.items.length} 个书签</span>
       </div>`;
