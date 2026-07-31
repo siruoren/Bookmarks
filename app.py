@@ -7,7 +7,7 @@ import threading
 from typing import List, Dict, Optional
 
 from flask import Flask, jsonify, render_template, request
-from parser import parse_bookmarks, search_bookmarks, flatten_bookmarks
+from parser import parse_bookmarks, search_bookmarks
 from git_sync import GitSync
 from scheduler import Scheduler
 
@@ -247,10 +247,7 @@ def index():
 def api_bookmarks():
     """获取所有书签数据"""
     keyword = request.args.get("q", "").strip()
-    if keyword:
-        data = search_bookmarks(bookmarks_data, keyword)
-    else:
-        data = bookmarks_data
+    data = search_bookmarks(bookmarks_data, keyword) if keyword else bookmarks_data
     return jsonify({
         "categories": data,
         "last_update": last_update,
@@ -262,18 +259,14 @@ def api_bookmarks():
 def api_recent():
     """获取最近常用项"""
     device_id = request.args.get("device_id", "")
-    if device_id:
-        return jsonify({"items": get_device_recent(device_id)})
-    return jsonify({"items": recent_items})
+    return jsonify({"items": get_device_recent(device_id) if device_id else []})
 
 
 @app.route("/api/visit", methods=["POST"])
 def api_visit():
     """记录访问(用于最近常用)"""
     data = request.get_json(silent=True) or {}
-    title = data.get("title", "")
-    url = data.get("url", "")
-    category = data.get("category", "")
+    title, url, category = data.get("title", ""), data.get("url", ""), data.get("category", "")
     device_id = data.get("device_id", "default")
     if title and url:
         add_recent(title, url, category, device_id)
@@ -285,19 +278,6 @@ def api_refresh():
     """手动触发刷新"""
     refresh_bookmarks()
     return jsonify({"ok": True, "last_update": last_update})
-
-
-@app.route("/api/search")
-def api_search():
-    """全局搜索"""
-    keyword = request.args.get("q", "").strip()
-    if not keyword:
-        return jsonify({"categories": [], "total": 0})
-    data = search_bookmarks(bookmarks_data, keyword)
-    return jsonify({
-        "categories": data,
-        "total": sum(len(c["items"]) for c in data)
-    })
 
 
 @app.route("/api/recent/pin", methods=["POST"])

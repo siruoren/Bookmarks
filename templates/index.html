@@ -210,7 +210,6 @@ let deviceId = getDeviceId();
 // 全局状态
 let allCategories = [];
 let recentData = [];
-let bookmarksData = [];
 let currentCat = null; // 当前选中的分类索引, null=全部
 let isSearchMode = false;
 
@@ -276,12 +275,6 @@ async function recordVisit(title, url, category) {
     body: JSON.stringify({title, url, category, device_id: deviceId})
   });
   loadRecent();
-}
-
-async function refreshData() {
-  document.getElementById('content').innerHTML = '<div class="loading">刷新中...</div>';
-  await fetch('/api/refresh', {method: 'POST'});
-  init();
 }
 
 // 渲染侧边栏
