@@ -67,6 +67,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .recent-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
 .recent-item .delete-btn { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #e74c3c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
 .recent-item.show-delete .delete-btn { display: flex; }
+.recent-item.show-deleteanimation { animation: shake 0.5s ease-in-out infinite; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-1deg); }
+  75% { transform: translateX(3px) rotate(1deg); }
+}
 
 /* 分类视图 - 首页概览 */
 .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -461,6 +468,7 @@ function startLongPress(e) {
   longPressTimer = setTimeout(() => {
     if (longPressElement) {
       longPressElement.classList.add('show-delete');
+      longPressElement.classList.add('show-deleteanimation');
     }
   }, 500);
 }
@@ -481,6 +489,7 @@ function handleRecentClick(e) {
   // 如果显示删除按钮，先隐藏
   if (item.classList.contains('show-delete')) {
     item.classList.remove('show-delete');
+    item.classList.remove('show-deleteanimation');
     return;
   }
   
