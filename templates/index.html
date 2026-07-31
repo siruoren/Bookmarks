@@ -318,7 +318,10 @@ function toggleTheme() {
 
 // 侧边栏折叠相关
 function initSidebarCollapse() {
-  const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+  const saved = localStorage.getItem('sidebar_collapsed');
+  // 默认收起，如果没有保存状态或保存为true
+  const collapsed = saved === null ? true : saved === 'true';
+  
   if (collapsed) {
     document.getElementById('sidebar').classList.add('collapsed');
     const collapseBtn = document.querySelector('.collapse-btn');
