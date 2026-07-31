@@ -915,7 +915,8 @@ function handleDrop(event) {
     if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
       const newOrder = [...currentOrder];
       newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, draggedCategory);
+      // 插入到目标位置的后面
+      newOrder.splice(toIndex + 1, 0, draggedCategory);
       
       // 立即更新本地状态和UI
       categoryOrder = newOrder;
@@ -980,7 +981,8 @@ function handleCardDrop(event) {
     if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
       const newOrder = [...currentOrder];
       newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, draggedCategory);
+      // 插入到目标位置的后面
+      newOrder.splice(toIndex + 1, 0, draggedCategory);
       
       // 立即更新本地状态和UI
       categoryOrder = newOrder;
