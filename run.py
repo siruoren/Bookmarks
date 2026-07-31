@@ -1,10 +1,13 @@
 """启动入口"""
 import logging
+import sys
 from app import app, init_app
 
+# 配置日志输出到stdout
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout
 )
 
 # 禁用Werkzeug访问日志
