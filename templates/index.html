@@ -441,33 +441,42 @@ async function init() {
   const total = data.total || 0;
   const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '-';
   document.getElementById('stats').textContent = `${total} 书签 | ${updateTime}`;
+  
+  // 初始化搜索事件监听
+  setupSearch();
 }
 
 // 搜索
-const searchInput = document.getElementById('searchInput');
-const clearBtn = document.getElementById('clearBtn');
+let searchTimer = null;
 
-searchInput.addEventListener('input', function() {
-  clearTimeout(searchTimer);
-  const v = this.value.trim();
-  clearBtn.style.display = v ? 'block' : 'none';
-  if (!v) { isSearchMode = false; renderSidebar(allCategories); if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview(); return; }
-  searchTimer = setTimeout(async () => {
-    isSearchMode = true;
-    currentCat = null;
-    const data = await loadBookmarks(v);
+function setupSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('clearBtn');
+  
+  if (!searchInput || !clearBtn) return;
+  
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const v = this.value.trim();
+    clearBtn.style.display = v ? 'block' : 'none';
+    if (!v) { isSearchMode = false; renderSidebar(allCategories); if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview(); return; }
+    searchTimer = setTimeout(async () => {
+      isSearchMode = true;
+      currentCat = null;
+      const data = await loadBookmarks(v);
+      renderSidebar(allCategories);
+      renderSearch(data);
+    }, 300);
+  });
+
+  clearBtn.addEventListener('click', function() {
+    searchInput.value = '';
+    clearBtn.style.display = 'none';
+    isSearchMode = false;
     renderSidebar(allCategories);
-    renderSearch(data);
-  }, 300);
-});
-
-clearBtn.addEventListener('click', function() {
-  searchInput.value = '';
-  clearBtn.style.display = 'none';
-  isSearchMode = false;
-  renderSidebar(allCategories);
-  if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview();
-});
+    if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview();
+  });
+}
 
 // 移动端侧边栏
 function toggleSidebar() {
