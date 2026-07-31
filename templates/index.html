@@ -82,6 +82,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .sidebar-header .collapse-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: background .2s; }
 .sidebar-header .collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
 .sidebar-menu { flex: 1; padding: 6px 0; }
+.sidebar-expand-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; border: none; width: 24px; height: 48px; cursor: pointer; border-radius: 0 8px 8px 0; display: none; align-items: center; justify-content: center; font-size: 14px; z-index: 100; box-shadow: 2px 0 8px rgba(0,0,0,.2); transition: left 0.3s ease; }
+.sidebar-expand-btn:hover { background: var(--primary-dark); }
+.sidebar-expand-btn.visible { display: flex; }
 .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
 .menu-item:hover { background: var(--primary-light); }
 .menu-item.active { background: var(--primary); color: #fff; }
@@ -244,6 +247,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
     </div>
     <div class="sidebar-menu" id="sidebarMenu"></div>
   </div>
+  <button class="sidebar-expand-btn" onclick="toggleSidebarCollapse()" title="展开侧边栏">▶</button>
   <div class="content" id="content">
     <div class="loading">加载中...</div>
   </div>
@@ -307,6 +311,14 @@ function initSidebarCollapse() {
   const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
   if (collapsed) {
     document.getElementById('sidebar').classList.add('collapsed');
+    const collapseBtn = document.querySelector('.collapse-btn');
+    const expandBtn = document.querySelector('.sidebar-expand-btn');
+    if (collapseBtn) {
+      collapseBtn.textContent = '▶';
+    }
+    if (expandBtn) {
+      expandBtn.classList.add('visible');
+    }
   }
 }
 
@@ -316,10 +328,14 @@ function toggleSidebarCollapse() {
   const collapsed = sidebar.classList.contains('collapsed');
   localStorage.setItem('sidebar_collapsed', collapsed);
   
-  // 更新按钮图标
+  // 更新按钮图标和展开按钮显示
   const collapseBtn = document.querySelector('.collapse-btn');
+  const expandBtn = document.querySelector('.sidebar-expand-btn');
   if (collapseBtn) {
     collapseBtn.textContent = collapsed ? '▶' : '◀';
+  }
+  if (expandBtn) {
+    expandBtn.classList.toggle('visible', collapsed);
   }
 }
 
