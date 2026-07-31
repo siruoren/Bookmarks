@@ -25,6 +25,11 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     pos = 0
     # 当前分类下的书签暂存
     current_items = []
+    # 根目录下的书签（用于展平显示）
+    root_bookmarks = []
+    
+    # 需要跳过的根目录名
+    skip_root_categories = {"Bookmarks Bar", "Other Bookmarks"}
 
     while pos < len(content):
         # 查找下一个关键标签
@@ -58,7 +63,13 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
                 })
                 current_items = []
             category_name = unescape(match.group(1).strip())
-            category_stack.append(category_name)
+            
+            # 检查是否是需要跳过的根目录
+            if len(category_stack) == 0 and category_name in skip_root_categories:
+                # 跳过这个根目录名，但不阻止其子分类和书签被处理
+                category_stack.append(category_name)
+            else:
+                category_stack.append(category_name)
             pos = match.end()
 
         elif tag_type == 'dl_open':
@@ -67,10 +78,14 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
         elif tag_type == 'dl_close':
             # 保存当前分类书签
             if current_items and category_stack:
-                result.append({
-                    "category": " / ".join(category_stack),
-                    "items": current_items
-                })
+                # 如果是根目录且在跳过列表中，将书签添加到根书签列表
+                if len(category_stack) == 1 and category_stack[0] in skip_root_categories:
+                    root_bookmarks.extend(current_items)
+                else:
+                    result.append({
+                        "category": " / ".join(category_stack),
+                        "items": current_items
+                    })
                 current_items = []
             if category_stack:
                 category_stack.pop()
@@ -79,15 +94,43 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
         elif tag_type == 'a':
             url = unescape(match.group(1).strip())
             title = unescape(match.group(2).strip())
-            current_items.append({"title": title, "url": url})
+            
+            # 如果在根目录下（没有分类），添加到根书签列表
+            if not category_stack:
+                root_bookmarks.append({"title": title, "url": url})
+            else:
+                current_items.append({"title": title, "url": url})
             pos = match.end()
 
     # 处理末尾残留
     if current_items and category_stack:
-        result.append({
-            "category": " / ".join(category_stack),
-            "items": current_items
+        if len(category_stack) == 1 and category_stack[0] in skip_root_categories:
+            root_bookmarks.extend(current_items)
+        else:
+            result.append({
+                "category": " / ".join(category_stack),
+                "items": current_items
+            })
+
+    # 将根目录书签添加到结果开头（先显示书签条目）
+    if root_bookmarks:
+        result.insert(0, {
+            "category": "书签栏",
+            "items": root_bookmarks
         })
+
+    # 合并重复的分类路径
+    merged_result = {}
+    for cat in result:
+        category_path = cat["category"]
+        if category_path in merged_result:
+            # 合并书签项
+            merged_result[category_path]["items"].extend(cat["items"])
+        else:
+            merged_result[category_path] = cat
+    
+    # 转换回列表格式
+    result = list(merged_result.values())
 
     return result
 
