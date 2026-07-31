@@ -286,6 +286,24 @@ async function loadCategoryOrder() {
   }
 }
 
+// 防抖函数
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// 防抖保存到后台
+const debouncedSaveCategoryOrder = debounce((order) => {
+  saveCategoryOrder(order);
+}, 500);
+
 async function saveCategoryOrder(order) {
   try {
     await fetch('/api/category_order', {
@@ -293,7 +311,6 @@ async function saveCategoryOrder(order) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({order, device_id: deviceId})
     });
-    categoryOrder = order;
   } catch (e) {
     console.error("保存目录顺序失败", e);
   }
@@ -869,7 +886,7 @@ function handleDrop(event) {
   const targetCategory = targetItem.dataset.category;
   
   if (draggedCategory && targetCategory && draggedCategory !== targetCategory) {
-    // 更新顺序
+    // 更新本地顺序
     const regularCategories = getRegularCategories();
     const currentOrder = regularCategories.map(c => c.category);
     
@@ -881,9 +898,12 @@ function handleDrop(event) {
       newOrder.splice(fromIndex, 1);
       newOrder.splice(toIndex, 0, draggedCategory);
       
-      saveCategoryOrder(newOrder).then(() => {
-        renderSidebar(allCategories);
-      });
+      // 立即更新本地状态和UI
+      categoryOrder = newOrder;
+      renderSidebar(allCategories);
+      
+      // 防抖保存到后台
+      debouncedSaveCategoryOrder(newOrder);
     }
   }
 }
@@ -929,9 +949,12 @@ function handleCardDrop(event) {
       newOrder.splice(fromIndex, 1);
       newOrder.splice(toIndex, 0, draggedCategory);
       
-      saveCategoryOrder(newOrder).then(() => {
-        renderOverview();
-      });
+      // 立即更新本地状态和UI
+      categoryOrder = newOrder;
+      renderOverview();
+      
+      // 防抖保存到后台
+      debouncedSaveCategoryOrder(newOrder);
     }
   }
 }
