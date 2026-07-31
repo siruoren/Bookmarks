@@ -202,9 +202,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
   <div class="right-col">
     <div class="calendar" id="calendar"></div>
     <div class="weather" id="weather">
-      <span class="weather-icon" id="weatherIcon">&#127749;</span>
+      <span class="weather-icon" id="weatherIcon" onclick="toggleCityInput()">&#127749;</span>
       <span class="weather-temp" id="weatherTemp">--°</span>
-      <span class="weather-city" id="weatherCity" onclick="toggleCityInput()">定位中...</span>
       <input type="text" class="weather-city-input" id="weatherCityInput" placeholder="输入城市" onkeypress="handleCityInput(event)">
     </div>
     <button class="refresh-btn" onclick="location.reload()">&#8635; <span>刷新</span></button>
@@ -331,7 +330,6 @@ function updateWeatherDisplay(data) {
   const weatherDesc = getWeatherDescription(data.weatherCode);
   document.getElementById('weatherIcon').textContent = getWeatherIcon(weatherDesc);
   document.getElementById('weatherTemp').textContent = `${data.temp}°`;
-  document.getElementById('weatherCity').textContent = data.city;
 }
 
 function getWeatherDescription(code) {
@@ -352,8 +350,6 @@ async function initWeather() {
     const data = await fetchWeather(weatherCity);
     if (data) {
       updateWeatherDisplay(data);
-    } else {
-      document.getElementById('weatherCity').textContent = '获取失败';
     }
   } else {
     // 自动定位
@@ -373,30 +369,23 @@ async function initWeather() {
             if (data) updateWeatherDisplay(data);
           } catch (e) {
             console.error("反向地理编码失败", e);
-            document.getElementById('weatherCity').textContent = '定位失败';
           }
         },
         (error) => {
           console.error("定位失败", error);
-          document.getElementById('weatherCity').textContent = '点击定位';
         }
       );
-    } else {
-      document.getElementById('weatherCity').textContent = '点击定位';
     }
   }
 }
 
 function toggleCityInput() {
   const input = document.getElementById('weatherCityInput');
-  const citySpan = document.getElementById('weatherCity');
   
   if (input.classList.contains('show')) {
     input.classList.remove('show');
-    citySpan.style.display = 'inline';
   } else {
     input.classList.add('show');
-    citySpan.style.display = 'none';
     input.value = weatherCity;
     input.focus();
   }
@@ -408,13 +397,10 @@ function handleCityInput(event) {
     if (city) {
       localStorage.setItem(getWeatherCityKey(), city);
       weatherCity = city;
-      document.getElementById('weatherCity').textContent = '加载中...';
-      document.getElementById('weatherCity').style.display = 'inline';
       event.target.classList.remove('show');
       
       fetchWeather(city).then(data => {
         if (data) updateWeatherDisplay(data);
-        else document.getElementById('weatherCity').textContent = '获取失败';
       });
     }
   }
