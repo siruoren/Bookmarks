@@ -449,6 +449,7 @@ function toggleSearchBox() {
 // 长按处理
 let longPressTimer = null;
 let longPressElement = null;
+let wasLongPress = false;
 
 function setupLongPress() {
   document.querySelectorAll('.recent-item').forEach(item => {
@@ -464,11 +465,13 @@ function setupLongPress() {
 function startLongPress(e) {
   if (e.target.classList.contains('delete-btn')) return;
   
+  wasLongPress = false;
   longPressElement = e.currentTarget;
   longPressTimer = setTimeout(() => {
     if (longPressElement) {
       longPressElement.classList.add('show-delete');
       longPressElement.classList.add('show-deleteanimation');
+      wasLongPress = true;
     }
   }, 500);
 }
@@ -486,10 +489,18 @@ function handleRecentClick(e) {
   const item = e.currentTarget;
   const url = item.dataset.url;
   
-  // 如果显示删除按钮，先隐藏
-  if (item.classList.contains('show-delete')) {
+  // 如果显示删除按钮且不是长按触发的，先隐藏
+  if (item.classList.contains('show-delete') && !wasLongPress) {
     item.classList.remove('show-delete');
     item.classList.remove('show-deleteanimation');
+    return;
+  }
+  
+  // 重置长按标志
+  wasLongPress = false;
+  
+  // 如果显示删除按钮是长按触发的，不执行跳转
+  if (item.classList.contains('show-delete')) {
     return;
   }
   
