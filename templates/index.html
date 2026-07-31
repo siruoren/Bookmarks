@@ -51,10 +51,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 .header .right-col { display: flex; align-items: center; gap: 12px; justify-self: end; }
 .theme-toggle { background: rgba(255,255,255,.18); color: #fff; border: none; padding: 0; border-radius: 50px; cursor: pointer; font-size: 18px; transition: background .2s; width: 26px; height: 50px; position: relative; overflow: hidden; }
 .theme-toggle:hover { background: rgba(255,255,255,.3); }
-.theme-switch { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+.theme-switch { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,.2); z-index: 1; }
 [data-theme="dark"] .theme-switch { transform: translateY(24px); background: #1a1a2e; }
-.theme-toggle::before { content: "☀️"; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 1; transition: opacity 0.3s; }
-.theme-toggle::after { content: "🌙"; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 0.3; transition: opacity 0.3s; }
+.theme-toggle::before { content: "☀️"; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 1; transition: opacity 0.3s; z-index: 2; }
+.theme-toggle::after { content: "🌙"; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 0.3; transition: opacity 0.3s; z-index: 2; }
 [data-theme="dark"] .theme-toggle::before { opacity: 0.3; }
 [data-theme="dark"] .theme-toggle::after { opacity: 1; }
 
