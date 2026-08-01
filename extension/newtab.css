@@ -364,7 +364,7 @@ body.has-wallpaper > * {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 10px 0 4px 0;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
@@ -373,6 +373,7 @@ body.has-wallpaper > * {
 .top-visited-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .top-visited-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -442,6 +443,41 @@ body.has-wallpaper > * {
 }
 
 [data-theme="light"] .top-visited-count { color: var(--text2); }
+
+/* 晃动模式 */
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-3deg); }
+  40% { transform: rotate(3deg); }
+  60% { transform: rotate(-2deg); }
+  80% { transform: rotate(2deg); }
+}
+
+.top-visited-item.shake {
+  animation: shake 1.2s ease infinite;
+}
+
+.remove-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  border: 2px solid #fff;
+  line-height: 1;
+  font-weight: 600;
+}
+
+[data-theme="light"] .remove-badge { border-color: #f0f2f5; }
 
 /* === 内容区 === */
 .content {
@@ -544,33 +580,6 @@ body.has-wallpaper > * {
 }
 
 .bookmark-panel-header .panel-close:hover { background: var(--card-hover); color: var(--text); }
-
-/* 子目录行 */
-.subdir-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.subdir-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text);
-  transition: all 0.2s;
-}
-
-.subdir-chip:hover { background: var(--card-hover); border-color: var(--primary); }
-.subdir-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.subdir-chip .chip-icon { font-size: 14px; }
-.subdir-chip .chip-count { font-size: 11px; opacity: 0.7; }
 
 /* 书签网格 */
 .bookmark-grid {

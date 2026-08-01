@@ -1,11 +1,12 @@
 // 全局状态
 let allCategories = [];
-let activeCat = null;   // 当前展开的目录名
+let activeCat = null;
 let isSearchMode = false;
+let isShakeMode = false;  // 最常使用长按晃动模式
 
 // 分类图标
 const CAT_ICONS = ['📂','🎬','📝','💻','🎮','🎧','🔧','🏠','📚','💰','🛒','✈️','🖼️','👔','🔗','🌍','📊','🗂️','⚙️','🧰','📁','🔔','📌','🎯'];
-function catIcon(i) { return CAT_ICONS[i % CAT_ICONS.length]; }
+const catIcon = i => CAT_ICONS[i % CAT_ICONS.length];
 
 // === 时钟 ===
 function updateClock() {
@@ -150,8 +151,7 @@ function handleCityInput(event) {
 
 // === 工具函数 ===
 function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function escAttr(s) { return escHtml(s); }
-function escJs(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+const escAttr = escHtml;
 
 function cleanTitle(title) {
   if (!title) return '';
@@ -173,13 +173,29 @@ function bmIconHtml(url, title) {
 }
 
 function loadFavicons() {
-  document.querySelectorAll('.bm-icon[data-fav]').forEach(el => {
+  const icons = document.querySelectorAll('.bm-icon[data-fav]');
+  if (icons.length === 0) return;
+  const favCache = new Map(); // 去重：同一URL只请求一次
+  icons.forEach(el => {
     const fav = el.dataset.fav;
+    if (favCache.has(fav)) {
+      const cached = favCache.get(fav);
+      if (cached === true) replaceIcon(el, fav);
+      return;
+    }
+    favCache.set(fav, false);
     const img = new Image();
-    img.onload = () => { el.innerHTML = ''; const i = document.createElement('img'); i.src = fav; el.appendChild(i); };
+    img.onload = () => { favCache.set(fav, true); replaceIcon(el, fav); };
     img.onerror = () => {};
     img.src = fav;
   });
+}
+
+function replaceIcon(el, src) {
+  el.innerHTML = '';
+  const i = document.createElement('img');
+  i.src = src;
+  el.appendChild(i);
 }
 
 function showToast(msg) {
@@ -198,18 +214,18 @@ function loadFromCache() {
 
 function saveToCache(data) { chrome.storage.local.set({ bookmarksCache: data }); }
 
+function toFetchUrl(url) {
+  let u = url.replace(/^tcp:\/\//i, 'http://');
+  if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+  return u;
+}
+
 async function fetchFromBackend() {
   const config = await new Promise(resolve => chrome.storage.local.get(['serverUrl', 'apiPassword'], resolve));
   if (!config.serverUrl) return null;
 
-  // 自动转换 tcp:// → http://，补全协议
-  let serverUrl = config.serverUrl.replace(/^tcp:\/\//i, 'http://');
-  if (!/^https?:\/\//i.test(serverUrl)) {
-    serverUrl = 'http://' + serverUrl;
-  }
-
-  const headers = {};
-  if (config.apiPassword) headers['X-API-Key'] = config.apiPassword;
+  const serverUrl = toFetchUrl(config.serverUrl);
+  const headers = config.apiPassword ? { 'X-API-Key': config.apiPassword } : {};
   try {
     const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
     if (resp.ok) {
@@ -245,28 +261,27 @@ async function recordVisit(url, title) {
   }
   counts[url].count++;
   counts[url].title = title || counts[url].title;
-
-  // 只保留前10个，删除多余的
-  const sorted = Object.entries(counts)
-    .sort((a, b) => b[1].count - a[1].count);
-  if (sorted.length > 10) {
-    const trimmed = {};
-    sorted.slice(0, 10).forEach(([k, v]) => { trimmed[k] = v; });
-    chrome.storage.local.set({ visitCounts: trimmed });
-  } else {
-    chrome.storage.local.set({ visitCounts: counts });
-  }
+  chrome.storage.local.set({ visitCounts: counts });
 }
 
-async function getTopVisited(limit = 10) {
+async function removeVisited(url) {
   const result = await new Promise(resolve => {
     chrome.storage.local.get({ visitCounts: {} }, resolve);
   });
   const counts = result.visitCounts;
-  return Object.entries(counts)
+  delete counts[url];
+  chrome.storage.local.set({ visitCounts: counts });
+  // 重新渲染
+  refreshTopVisited();
+}
+
+async function getTopVisited() {
+  const result = await new Promise(resolve => {
+    chrome.storage.local.get({ visitCounts: {} }, resolve);
+  });
+  return Object.entries(result.visitCounts)
     .map(([url, data]) => ({ url, title: data.title, count: data.count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+    .sort((a, b) => b.count - a.count);
 }
 
 function renderTopVisited(items) {
@@ -276,7 +291,8 @@ function renderTopVisited(items) {
   html += '<div class="top-visited-grid">';
   items.forEach(item => {
     const t = escHtml(cleanTitle(item.title));
-    html += `<a class="top-visited-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+    html += `<a class="top-visited-item ${isShakeMode ? 'shake' : ''}" href="${escAttr(item.url)}" target="_blank" rel="noopener" data-url="${escAttr(item.url)}">
+      ${isShakeMode ? '<span class="remove-badge" data-action="remove-visited">✕</span>' : ''}
       ${bmIconHtml(item.url, item.title)}
       <div class="top-visited-info">
         <div class="top-visited-name">${t}</div>
@@ -286,6 +302,18 @@ function renderTopVisited(items) {
   });
   html += '</div></div>';
   return html;
+}
+
+async function refreshTopVisited() {
+  const slot = document.getElementById('topVisitedSlot');
+  if (!slot) return;
+  const items = await getTopVisited();
+  if (items.length > 0) {
+    slot.innerHTML = renderTopVisited(items);
+    loadFavicons();
+  } else {
+    slot.innerHTML = '';
+  }
 }
 
 // === 目录信息 ===
@@ -306,30 +334,22 @@ function renderData(data) {
 function renderMainView() {
   const content = document.getElementById('content');
   const categories = getCategories();
+  const validCategories = categories.filter(c => c.items.length > 0);
 
   let html = '';
-
-  // 最常使用（异步渲染）
   html += '<div id="topVisitedSlot"></div>';
-
-  // 目录卡片网格 - 用 data-idx 索引代替目录名，避免转义问题
   html += '<div class="category-grid">';
-  // 过滤掉没有书签的目录，重新索引
-  const validCategories = categories.filter(c => c.items.length > 0);
   validCategories.forEach((cat, i) => {
     const shortName = cat.category.split(' / ').pop();
     const isActive = activeCat === cat.category;
-    const count = cat.items.length;
-
     html += `<div class="cat-card ${isActive ? 'active' : ''}" data-cat="${escAttr(cat.category)}" data-idx="${i}">
       <div class="cat-icon ico-${i % 8}">${catIcon(i)}</div>
       <div class="cat-name">${escHtml(shortName)}</div>
-      <div class="cat-count">${count} 书签</div>
+      <div class="cat-count">${cat.items.length} 书签</div>
     </div>`;
   });
   html += '</div>';
 
-  // 书签展开面板 - activeCat 现在存的是 category 名
   if (activeCat) {
     html += renderBookmarkPanel(activeCat);
   }
@@ -339,7 +359,7 @@ function renderMainView() {
   loadFavicons();
 
   // 异步填充最常使用
-  getTopVisited(10).then(items => {
+  getTopVisited().then(items => {
     const slot = document.getElementById('topVisitedSlot');
     if (slot && items.length > 0) {
       slot.innerHTML = renderTopVisited(items);
@@ -350,19 +370,15 @@ function renderMainView() {
 
 function renderBookmarkPanel(categoryName) {
   const categories = getCategories();
-  const cat = categories.find(c => c.category === categoryName);
-  const idx = categories.findIndex(c => c.category === categoryName);
+  const validCategories = categories.filter(c => c.items.length > 0);
+  const catIdx = validCategories.findIndex(c => c.category === categoryName);
+  const cat = validCategories[catIdx];
   if (!cat) return '';
 
-  if (cat.items.length === 0) {
-    return '<div class="bookmark-panel"><div class="empty">该目录下没有书签</div></div>';
-  }
-
-  let html = '<div class="bookmark-panel">';
-
-  // 面板标题
   const shortName = categoryName.split(' / ').pop();
   const parentPath = categoryName.includes(' / ') ? categoryName.substring(0, categoryName.lastIndexOf(' / ')) : '';
+
+  let html = '<div class="bookmark-panel">';
   html += '<div class="bookmark-panel-header">';
   html += `<span class="panel-icon ico-${catIdx % 8}">${catIcon(catIdx)}</span>`;
   html += `<span class="panel-title">${escHtml(shortName)}</span>`;
@@ -371,7 +387,6 @@ function renderBookmarkPanel(categoryName) {
   html += '<div class="panel-close" data-action="close-panel">✕</div>';
   html += '</div>';
 
-  // 书签列表
   html += '<div class="bookmark-grid">';
   cat.items.forEach(item => {
     const t = escHtml(cleanTitle(item.title));
@@ -381,38 +396,53 @@ function renderBookmarkPanel(categoryName) {
       <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
     </a>`;
   });
-  html += '</div>';
-
-  html += '</div>';
+  html += '</div></div>';
   return html;
 }
 
 // === 交互 ===
 let contentEventsBound = false;
+let longPressTimer = null;
+
 function bindContentEvents() {
   if (contentEventsBound) return;
   contentEventsBound = true;
-  // 目录卡片点击 - 事件委托，只绑定一次
   const content = document.getElementById('content');
+
   content.addEventListener('click', (e) => {
+    // 移除最常使用条目
+    const removeBtn = e.target.closest('[data-action="remove-visited"]');
+    if (removeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const item = removeBtn.closest('.top-visited-item');
+      const url = item?.dataset.url;
+      if (url) removeVisited(url);
+      return;
+    }
+
     // 书签点击 → 记录访问
     const bmItem = e.target.closest('a.bookmark-item[href]');
     if (bmItem) {
       recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
     }
+
+    // 最常使用点击 - 晃动模式下阻止跳转
     const tvItem = e.target.closest('a.top-visited-item[href]');
     if (tvItem) {
+      if (isShakeMode) { e.preventDefault(); return; }
       recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
     }
-    // 目录卡片点击 - 用 data-cat 匹配 category 名
+
+    // 目录卡片点击
     const card = e.target.closest('.cat-card[data-cat]');
     if (card) {
-      const catName = card.dataset.cat;
-      activeCat = (activeCat === catName) ? null : catName;
+      activeCat = (activeCat === card.dataset.cat) ? null : card.dataset.cat;
       isSearchMode = false;
       renderMainView();
       return;
     }
+
     const closeBtn = e.target.closest('[data-action="close-panel"]');
     if (closeBtn) {
       activeCat = null;
@@ -420,11 +450,21 @@ function bindContentEvents() {
       return;
     }
   });
-}
 
-function closePanel() {
-  activeCat = null;
-  renderMainView();
+  // 长按最常使用 → 进入/退出晃动模式
+  content.addEventListener('pointerdown', (e) => {
+    const tvItem = e.target.closest('.top-visited-item');
+    if (!tvItem) return;
+    longPressTimer = setTimeout(() => {
+      isShakeMode = !isShakeMode;
+      refreshTopVisited();
+    }, 500);
+  });
+
+  const cancelLongPress = () => { clearTimeout(longPressTimer); };
+  content.addEventListener('pointerup', cancelLongPress);
+  content.addEventListener('pointermove', cancelLongPress);
+  content.addEventListener('pointercancel', cancelLongPress);
 }
 
 // === 搜索 ===
@@ -486,10 +526,9 @@ function setupSearch() {
 function performSearch(keyword) {
   keyword = keyword.toLowerCase();
   const categories = getCategories();
-  const content = document.getElementById('content');
   const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.bing;
 
-  // 搜索引擎提示条（放在最上面）
+  // 搜索引擎提示条
   const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
   const searchUrl = engine.url + encodeURIComponent(keyword);
   let html = `<a class="search-engine-hint" href="${escAttr(searchUrl)}" target="_blank" rel="noopener">
@@ -497,6 +536,7 @@ function performSearch(keyword) {
     在 ${escHtml(engine.name)} 中搜索「${escHtml(displayKeyword)}」
   </a>`;
 
+  // 搜索书签
   let found = false;
   categories.forEach(cat => {
     const matched = cat.items.filter(item =>
@@ -504,14 +544,11 @@ function performSearch(keyword) {
     );
     if (matched.length > 0) {
       found = true;
-      html += `<div class="search-category">${escHtml(cat.category)}</div>`;
-      html += '<div class="bookmark-grid">';
+      html += `<div class="search-category">${escHtml(cat.category)}</div><div class="bookmark-grid">`;
       matched.forEach(item => {
-        const t = escHtml(cleanTitle(item.title));
-        const u = escHtml(item.url);
         html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
           ${bmIconHtml(item.url, item.title)}
-          <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
+          <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
         </a>`;
       });
       html += '</div>';
@@ -519,8 +556,7 @@ function performSearch(keyword) {
   });
 
   if (!found) html += '<div class="empty">未找到匹配的书签</div>';
-
-  content.innerHTML = html;
+  document.getElementById('content').innerHTML = html;
   loadFavicons();
 }
 
