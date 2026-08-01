@@ -125,6 +125,9 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     # 转换回列表格式
     result = list(merged_result.values())
 
+    # 按目录层级升序排序，同层级下按名称排序
+    result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
+
     # 将根目录书签作为特殊字段添加到结果中
     if root_bookmarks:
         result.append({
