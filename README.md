@@ -1,52 +1,53 @@
 # Bookmarks Navigation
 
-基于 Floccus + Git 的个人书签导航页，实现全平台、随时随地访问个人书签。
+基于 Git 同步的个人书签导航系统，包含后端 API 服务和浏览器扩展（兼容 Chrome / Edge），实现全平台书签导航。
 
 ## 项目简介
 
-本项目是一个轻量级的个人书签导航系统，通过 Floccus 浏览器插件将书签同步到 Git 仓库，自动解析并生成美观的导航页面。支持定时同步、智能搜索、响应式设计，让您在任何设备上都能快速访问常用书签。
+本项目由两部分组成：
+
+- **后端服务**（Flask）：从 Git 仓库同步书签文件并解析，提供 RESTful API
+- **浏览器扩展**：覆盖新标签页，从后端获取书签并展示为美观的导航页，支持 Bing 每日壁纸、天气、主题切换等
 
 ## 核心特性
 
-### 🔄 自动同步
-- 支持 Floccus 浏览器插件同步书签到 Git 仓库
-- 定时任务自动拉取最新书签（可配置间隔）
-- 智能变更检测：仅在书签文件更新时才重新解析，节省资源
+### 浏览器扩展
 
-### 🎨 现代化界面
-- 响应式设计，完美适配桌面、平板、手机
-- 分类展示，支持全局搜索
-- 美观的卡片式布局，支持 1-4 列自适应
-- 网站图标自动加载（favicon）
+- 覆盖新标签页，替代默认空白页
+- Bing 每日壁纸背景（可在设置中开关）
+- 暗色/亮色主题切换
+- 天气显示（可配置城市）
+- 实时时钟 + 日历 + 农历
+- 目录标签式展示，点击展开书签
+- 书签实时搜索过滤
+- 搜索引擎搜索（支持 Bing / Google / 百度，可配置）
+- 毛玻璃风格卡片
+- 后台定时增量同步（先检查更新时间，有更新才拉取）
+- 所有配置存储在 chrome.storage，清除浏览器缓存不影响设置
+- 兼容 Chrome 和 Edge（Manifest V3）
 
-### ⭐ 最近常用
-- 自动记录访问历史
-- 长按条目显示删除按钮
-- 支持置顶功能，置顶项可拖拽排序
-- 置顶项和未置顶项分组显示
+### 后端服务
 
-### 🔍 强大搜索
-- 实时搜索，支持标题和 URL 匹配
-- 搜索结果高亮显示
-- 搜索框图标化（小屏幕）
-
-### ⚙️ 灵活配置
-- YAML 配置文件，支持热加载
-- 可配置 Git 仓库、分支、SSH 密钥
-- 可配置定时任务间隔和启用状态
-- 可配置最近常用最大数量
+- Floccus 浏览器插件同步书签到 Git 仓库
+- 定时任务自动拉取最新书签
+- 智能变更检测：仅在书签文件更新时才重新解析
+- API Key 认证保护
+- 配置热加载，无需重启
+- 最近访问记录（按设备隔离）
 
 ## 快速开始
 
-### Docker 部署（推荐）
+### 1. 部署后端服务
 
-1. 克隆项目：
+#### Docker 部署（推荐）
+
 ```bash
 git clone <your-repo-url>
 cd Bookmarks
 ```
 
-2. 创建配置文件 `config.yml`：
+创建配置文件 `config.yml`：
+
 ```yaml
 git:
   repo_url: "git@github.com:yourusername/bookmarks.git"
@@ -56,71 +57,123 @@ git:
   bookmark_files:
     - "bookmarks.html"
 
-web:
-  host: "0.0.0.0"
-  port: 80
-  debug: false
-
 schedule:
   enabled: true
   interval_minutes: 30
 
 recent:
   max_count: 20
-  storage_path: "./data/recent.json"
+
+api_key: ""  # 可选，设置后所有 /api/* 请求需携带 X-API-Key 头
 ```
 
-3. 准备 SSH 密钥：
+准备 SSH 密钥并启动：
+
 ```bash
 mkdir -p ssh-keys
 cp ~/.ssh/id_rsa ssh-keys/
 chmod 600 ssh-keys/id_rsa
-```
-
-4. 启动服务：
-```bash
 docker-compose up -d
 ```
 
-访问 `http://localhost:5005` 即可使用。
+访问 `http://localhost:5005` 即可使用 Web 版。
 
-### 本地部署
+#### 本地部署
 
-1. 安装依赖：
 ```bash
 pip install -r requirements.txt
-```
-
-2. 创建配置文件 `config.yml`（同上，注意调整路径）
-
-3. 启动服务：
-```bash
 python run.py
 ```
 
-## Floccus 集成
+### 2. 安装浏览器扩展
 
-### 1. 安装 Floccus 插件
-在浏览器中安装 [Floccus 插件](https://addons.mozilla.org/en-US/firefox/addon/floccus/)（支持 Firefox、Chrome、Edge）
+#### 开发者模式加载（推荐）
 
-### 2. 配置 Floccus
-1. 打开 Floccus 设置
-2. 添加新的同步目标：
-   - 类型：Git
-   - 仓库 URL：你的 Git 仓库地址
-   - 分支：master（或你配置的分支）
-   - 文件路径：bookmarks.html（或你配置的文件名）
-   - 认证方式：SSH（使用你的 SSH 密钥）
+1. 打开浏览器扩展管理页：
+   - Chrome：`chrome://extensions/`
+   - Edge：`edge://extensions/`
+2. 开启「开发者模式」
+3. 点击「加载已解压的扩展程序」/「加载解压缩的扩展」
+4. 选择项目中的 `extension` 目录
 
-### 3. 同步书签
-1. 在浏览器中整理书签
-2. Floccus 自动同步到 Git 仓库
-3. 导航页定时任务自动拉取更新
-4. 刷新导航页即可看到最新书签
+#### 打包安装
+
+```bash
+./build_ext.sh
+```
+
+生成的 `dist/bookmarks-new-tab-vX.X.X.zip` 可分发安装。
+
+### 3. 配置扩展
+
+安装后点击扩展设置页（或新标签页右上角齿轮图标），配置：
+
+| 配置项 | 说明 |
+|--------|------|
+| 服务地址 | 后端 API 地址，如 `http://192.168.1.100:5000`，支持 `tcp://` 前缀 |
+| 访问密码 | 与后端 `config.yml` 中 `api_key` 对应 |
+| 更新间隔 | 后台同步书签的时间间隔（分钟） |
+| 主题 | 暗色 / 亮色 |
+| 天气城市 | 如 `北京`、`Shenzhen`，留空不显示 |
+| Bing 每日壁纸 | 开关，禁用后使用默认渐变背景 |
+| 搜索引擎 | Bing / Google / 百度 |
+
+## 项目结构
+
+```
+Bookmarks/
+├── app.py              # Flask 主应用（API 路由 + 配置热加载）
+├── scheduler.py        # 定时任务调度器
+├── parser.py           # 书签 HTML 解析器（层级排序 + 合并）
+├── git_sync.py         # Git 同步模块
+├── run.py              # 启动入口
+├── build_ext.sh        # 浏览器扩展打包脚本
+├── requirements.txt    # Python 依赖
+├── Dockerfile          # Docker 镜像
+├── docker-compose.yml  # Docker 编排
+├── config.yml          # 配置文件（不入库）
+├── templates/
+│   └── index.html      # Web 版前端页面
+├── extension/          # 浏览器扩展
+│   ├── manifest.json   # Manifest V3 配置
+│   ├── newtab.html     # 新标签页
+│   ├── newtab.css      # 新标签页样式
+│   ├── newtab.js       # 新标签页逻辑
+│   ├── options.html    # 设置页
+│   ├── options.css     # 设置页样式
+│   ├── options.js      # 设置页逻辑
+│   ├── background.js   # 后台 Service Worker（定时同步 + 增量更新）
+│   └── icons/          # 扩展图标
+└── data/               # 数据目录（持久化，不入库）
+```
+
+## API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/bookmarks` | GET | 获取所有书签数据（支持 `?q=keyword` 搜索） |
+| `/api/update_time` | GET | 获取后端最后更新时间戳 |
+| `/api/recent?device_id=xxx` | GET | 获取设备最近访问记录 |
+| `/api/visit` | POST | 记录访问（body: `{title, url, category, device_id}`） |
+| `/api/refresh` | POST | 手动触发刷新 |
+| `/api/config/reload` | POST | 手动触发配置热加载 |
+
+所有 `/api/*` 接口在配置了 `api_key` 时需要请求头 `X-API-Key` 认证。
+
+## 扩展更新机制
+
+扩展采用增量同步策略：
+
+1. 定时触发（由 `chrome.alarms` 驱动，间隔可配置）
+2. 先请求 `/api/update_time` 获取后端数据更新时间
+3. 与本地缓存的 `last_update` 比较
+4. 仅当远程更新时间晚于本地时，才拉取 `/api/bookmarks` 全量数据
+5. 更新后通过 `chrome.runtime.sendMessage` 通知已打开的标签页刷新
 
 ## 配置说明
 
-### Git 配置
+### 后端 config.yml
+
 ```yaml
 git:
   repo_url: "Git仓库地址"
@@ -129,103 +182,48 @@ git:
   ssh_key_path: "SSH私钥路径"
   bookmark_files:
     - "书签文件路径（支持多个）"
-```
 
-### Web 配置
-```yaml
 web:
   host: "监听地址"
   port: "监听端口"
   debug: "调试模式"
-```
 
-### 定时任务配置
-```yaml
 schedule:
-  enabled: true  # 是否启用定时任务
-  interval_minutes: 30  # 同步间隔（分钟）
-```
+  enabled: true
+  interval_minutes: 30
 
-### 最近常用配置
-```yaml
 recent:
-  max_count: 20  # 最大记录数量
-  storage_path: "./data/recent.json"  # 存储路径
-```
+  max_count: 20
 
-## 项目结构
-
-```
-Bookmarks/
-├── app.py              # Flask 主应用
-├── scheduler.py        # 定时任务调度器
-├── parser.py          # 书签文件解析器
-├── git_sync.py        # Git 同步模块
-├── run.py             # 启动入口
-├── config.yml         # 配置文件
-├── requirements.txt   # Python 依赖
-├── Dockerfile         # Docker 镜像构建
-├── docker-compose.yml # Docker 编排
-├── templates/
-│   └── index.html     # 前端页面
-└── data/              # 数据目录（持久化）
+api_key: ""  # 可选，设置后所有 API 请求需认证
 ```
 
 ## 技术栈
 
-- **后端**：Python + Flask
-- **前端**：原生 HTML/CSS/JavaScript
+- **后端**：Python + Flask + PyYAML
+- **浏览器扩展**：Manifest V3（Service Worker + chrome.alarms + chrome.storage）
+- **前端**：原生 HTML/CSS/JavaScript（毛玻璃 + CSS 变量主题）
 - **同步**：Git + SSH
+- **天气**：Open-Meteo API
+- **壁纸**：Bing HPImageArchive API
 - **容器化**：Docker + Docker Compose
-- **书签同步**：Floccus 浏览器插件
-
-## 功能详解
-
-### 响应式设计
-- **大屏**（≥1400px）：3-4 列布局，侧边栏加宽
-- **中屏**（≤1024px）：2-3 列布局，侧边栏缩窄
-- **小屏**（≤768px）：1-2 列布局，侧边栏隐藏，汉堡菜单
-- **超小屏**（≤480px）：标题显示为图标，搜索图标化
-
-### 最近常用操作
-- **长按**：显示删除按钮（左上角）和置顶按钮（右上角）
-- **点击删除**：移除该条目
-- **点击置顶**：切换置顶状态，置顶项显示🔎图标
-- **拖拽排序**：置顶项可拖拽调整顺序
-
-### 智能同步
-- 文件修改时间检测，避免无意义的重复解析
-- Git 同步失败时使用本地文件，保证服务可用性
-- 配置文件热加载，无需重启服务
 
 ## 常见问题
 
-### 1. Git 同步失败
+### 1. 扩展点击目录没有反应
+确保使用的是 Manifest V3 兼容版本，内联 `onclick` 在 MV3 下被 CSP 禁止，需使用事件绑定。
+
+### 2. TCP 地址连接失败（HTTP 501）
+浏览器 fetch 不支持 TCP 协议。扩展会自动将 `tcp://` 转为 `http://` 发起请求。若仍返回 501，请检查 FRP 代理类型是否为 `http` 而非 `tcp`。
+
+### 3. 清除浏览器缓存后配置丢失
+所有配置（主题、城市、壁纸开关、搜索引擎等）存储在 `chrome.storage.local`，清除浏览器缓存（Cache）不会影响。只有清除「扩展数据」才会重置。
+
+### 4. Git 同步失败
 - 检查 SSH 密钥权限（应为 600）
 - 确认 SSH 密钥已添加到 Git 仓库的 deploy keys
 - 检查网络连接和仓库地址
 
-### 2. 书签未更新
-- 确认 Floccus 已同步到 Git 仓库
-- 检查定时任务是否启用
-- 手动点击刷新按钮强制更新
-
-### 3. Docker 部署权限问题
-- 确保 `data` 目录有写权限
-- 检查 SSH 密钥挂载路径正确
-
-## 开发计划
-
-- [ ] 支持更多书签格式（Chrome、Firefox、Safari）
-- [ ] 添加书签导入/导出功能
-- [ ] 支持自定义主题
-- [ ] 添加书签分类编辑功能
-- [ ] 支持多用户
-
 ## 许可证
 
 MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
