@@ -852,7 +852,7 @@ function renderOverview() {
              onclick="showCategory('${escJs(cat.category)}')">
       <span class="oc-icon ico-${i % 8}">${catIcon(i)}</span>
       <span class="oc-name">${escHtml(shortName)}</span>
-      <span class="oc-count">${cat.items.length} 个书签</span>
+      <span class="oc-count">${cat.items.length > 0 ? cat.items.length + ' 个书签' : ''}</span>
     </div>`;
   });
   html += '</div>';

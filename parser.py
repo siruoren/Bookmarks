@@ -25,11 +25,8 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     pos = 0
     # 当前分类下的书签暂存
     current_items = []
-    # 根目录下的书签（用于展平显示）
+    # 根目录下的书签（没有H3分类包裹的根级书签）
     root_bookmarks = []
-    
-    # 需要跳过的根目录名（只跳过 Other Bookmarks，保留 Bookmarks Bar）
-    skip_root_categories = {""}
 
     while pos < len(content):
         # 查找下一个关键标签
@@ -63,13 +60,7 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
                 })
                 current_items = []
             category_name = unescape(match.group(1).strip())
-            
-            # 检查是否是需要跳过的根目录
-            if len(category_stack) == 0 and category_name in skip_root_categories:
-                # 跳过这个根目录名，但不阻止其子分类和书签被处理
-                category_stack.append(category_name)
-            else:
-                category_stack.append(category_name)
+            category_stack.append(category_name)
             pos = match.end()
 
         elif tag_type == 'dl_open':
@@ -78,14 +69,10 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
         elif tag_type == 'dl_close':
             # 保存当前分类书签
             if current_items and category_stack:
-                # 如果是根目录且在跳过列表中，将书签添加到根书签列表
-                if len(category_stack) == 1 and category_stack[0] in skip_root_categories:
-                    root_bookmarks.extend(current_items)
-                else:
-                    result.append({
-                        "category": " / ".join(category_stack),
-                        "items": current_items
-                    })
+                result.append({
+                    "category": " / ".join(category_stack),
+                    "items": current_items
+                })
                 current_items = []
             if category_stack:
                 category_stack.pop()
@@ -104,13 +91,10 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
 
     # 处理末尾残留
     if current_items and category_stack:
-        if len(category_stack) == 1 and category_stack[0] in skip_root_categories:
-            root_bookmarks.extend(current_items)
-        else:
-            result.append({
-                "category": " / ".join(category_stack),
-                "items": current_items
-            })
+        result.append({
+            "category": " / ".join(category_stack),
+            "items": current_items
+        })
 
     # 合并重复的分类路径
     merged_result = {}
@@ -124,6 +108,17 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     
     # 转换回列表格式
     result = list(merged_result.values())
+
+    # 补齐缺失的父级目录（如 Other Bookmarks 只有子文件夹没有直接书签时）
+    all_paths = set()
+    for cat in result:
+        parts = cat["category"].split(" / ")
+        for i in range(1, len(parts) + 1):
+            all_paths.add(" / ".join(parts[:i]))
+
+    existing_paths = {cat["category"] for cat in result}
+    for path in all_paths - existing_paths:
+        result.append({"category": path, "items": []})
 
     # 按目录层级升序排序，同层级下按名称排序
     result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
