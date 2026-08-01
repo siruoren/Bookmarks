@@ -6,6 +6,20 @@ const DEFAULTS = {
   updateInterval: 5
 };
 
+// 内部请求时将协议转为浏览器 fetch 支持的 http/https
+// 用户侧始终保留原始输入（如 tcp://）
+function toFetchUrl(url) {
+  let u = url.replace(/^tcp:\/\//i, 'http://');
+  if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+  return u;
+}
+
+// 验证地址格式是否合法（支持 tcp/http/https/无协议）
+function isValidUrl(url) {
+  const httpUrl = toFetchUrl(url);
+  try { new URL(httpUrl); return true; } catch { return false; }
+}
+
 // 加载配置
 function loadConfig() {
   chrome.storage.local.get(DEFAULTS, config => {
@@ -27,11 +41,8 @@ function saveConfig() {
     return;
   }
 
-  // 验证 URL 格式
-  try {
-    new URL(serverUrl);
-  } catch {
-    showStatus('服务地址格式不正确，需以 http:// 或 https:// 开头', 'error');
+  if (!isValidUrl(serverUrl)) {
+    showStatus('服务地址格式不正确', 'error');
     return;
   }
 
@@ -40,6 +51,7 @@ function saveConfig() {
     return;
   }
 
+  // 保存原始输入，不做转换
   chrome.storage.local.set({ serverUrl, apiPassword, updateInterval }, () => {
     showStatus('配置已保存', 'success');
     updateStatus();
@@ -56,6 +68,8 @@ async function testConnection() {
     return;
   }
 
+  const fetchUrl = toFetchUrl(serverUrl);
+
   showStatus('正在测试连接...', '');
   const statusEl = document.getElementById('status');
   statusEl.className = 'status';
@@ -66,7 +80,7 @@ async function testConnection() {
   }
 
   try {
-    const resp = await fetch(`${serverUrl}/api/bookmarks`, {
+    const resp = await fetch(`${fetchUrl}/api/bookmarks`, {
       headers,
       signal: AbortSignal.timeout(8000)
     });

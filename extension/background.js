@@ -60,13 +60,19 @@ async function syncBookmarks() {
     return;
   }
 
+  // 自动转换 tcp:// → http://，补全协议
+  let serverUrl = config.serverUrl.replace(/^tcp:\/\//i, 'http://');
+  if (!/^https?:\/\//i.test(serverUrl)) {
+    serverUrl = 'http://' + serverUrl;
+  }
+
   const headers = {};
   if (config.apiPassword) {
     headers['X-API-Key'] = config.apiPassword;
   }
 
   try {
-    const resp = await fetch(`${config.serverUrl}/api/bookmarks`, { headers });
+    const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
 
     if (!resp.ok) {
       if (resp.status === 401) {
