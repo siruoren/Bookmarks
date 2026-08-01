@@ -1,0 +1,152 @@
+// 设置页面逻辑
+
+const DEFAULTS = {
+  serverUrl: '',
+  apiPassword: '',
+  updateInterval: 5
+};
+
+// 加载配置
+function loadConfig() {
+  chrome.storage.local.get(DEFAULTS, config => {
+    document.getElementById('serverUrl').value = config.serverUrl;
+    document.getElementById('apiPassword').value = config.apiPassword;
+    document.getElementById('updateInterval').value = config.updateInterval;
+    updateStatus();
+  });
+}
+
+// 保存配置
+function saveConfig() {
+  const serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/+$/, '');
+  const apiPassword = document.getElementById('apiPassword').value;
+  const updateInterval = parseInt(document.getElementById('updateInterval').value) || 5;
+
+  if (!serverUrl) {
+    showStatus('请输入服务地址', 'error');
+    return;
+  }
+
+  // 验证 URL 格式
+  try {
+    new URL(serverUrl);
+  } catch {
+    showStatus('服务地址格式不正确，需以 http:// 或 https:// 开头', 'error');
+    return;
+  }
+
+  if (updateInterval < 1 || updateInterval > 1440) {
+    showStatus('更新间隔需在 1-1440 分钟之间', 'error');
+    return;
+  }
+
+  chrome.storage.local.set({ serverUrl, apiPassword, updateInterval }, () => {
+    showStatus('配置已保存', 'success');
+    updateStatus();
+  });
+}
+
+// 测试连接
+async function testConnection() {
+  const serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/+$/, '');
+  const apiPassword = document.getElementById('apiPassword').value;
+
+  if (!serverUrl) {
+    showStatus('请先输入服务地址', 'error');
+    return;
+  }
+
+  showStatus('正在测试连接...', '');
+  const statusEl = document.getElementById('status');
+  statusEl.className = 'status';
+
+  const headers = {};
+  if (apiPassword) {
+    headers['X-API-Key'] = apiPassword;
+  }
+
+  try {
+    const resp = await fetch(`${serverUrl}/api/bookmarks`, {
+      headers,
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      showStatus(`连接成功! 共 ${data.total || 0} 个书签`, 'success');
+    } else if (resp.status === 401) {
+      showStatus('认证失败: 密码不正确', 'error');
+    } else {
+      showStatus(`连接失败: HTTP ${resp.status}`, 'error');
+    }
+  } catch (e) {
+    if (e.name === 'TimeoutError') {
+      showStatus('连接超时，请检查地址是否正确', 'error');
+    } else {
+      showStatus(`连接失败: ${e.message}`, 'error');
+    }
+  }
+}
+
+// 立即同步
+function triggerSync() {
+  chrome.runtime.sendMessage({ type: 'triggerSync' }, resp => {
+    if (resp && resp.ok) {
+      showStatus('同步已触发', 'success');
+      setTimeout(updateStatus, 1000);
+    } else {
+      showStatus('同步请求失败', 'error');
+    }
+  });
+}
+
+// 更新状态显示
+function updateStatus() {
+  chrome.runtime.sendMessage({ type: 'getStatus' }, status => {
+    if (!status) return;
+
+    const configEl = document.getElementById('statusConfig');
+    const totalEl = document.getElementById('statusTotal');
+    const fetchEl = document.getElementById('statusLastFetch');
+
+    configEl.textContent = status.configured ? '已配置' : '未配置';
+    configEl.style.color = status.configured ? '#2ecc71' : '#e74c3c';
+
+    totalEl.textContent = status.total > 0 ? `${status.total} 个` : '-';
+
+    if (status.lastFetch > 0) {
+      const d = new Date(status.lastFetch);
+      fetchEl.textContent = d.toLocaleString('zh-CN');
+    } else {
+      fetchEl.textContent = '从未同步';
+    }
+  });
+}
+
+// 显示状态消息
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = `status ${type}`;
+}
+
+// 切换密码可见
+document.getElementById('togglePwd').addEventListener('click', () => {
+  const input = document.getElementById('apiPassword');
+  const btn = document.getElementById('togglePwd');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+});
+
+// 绑定按钮事件
+document.getElementById('saveBtn').addEventListener('click', saveConfig);
+document.getElementById('testBtn').addEventListener('click', testConnection);
+document.getElementById('syncBtn').addEventListener('click', triggerSync);
+
+// 初始化
+loadConfig();
