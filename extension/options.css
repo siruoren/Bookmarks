@@ -102,13 +102,6 @@ body {
 
 .toggle-pwd:hover { opacity: 1; }
 
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-
 .btn {
   padding: 10px 20px;
   border-radius: 8px;
@@ -200,3 +193,42 @@ body {
 
 .switch input:checked + .slider { background: #5b6abf; }
 .switch input:checked + .slider::before { transform: translateX(18px); }
+
+/* 底部固定操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e8ecf1;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  z-index: 100;
+}
+
+.bottom-bar-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bottom-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.bottom-bar .status {
+  margin-top: 0;
+  font-size: 13px;
+  min-height: 0;
+}
+
+/* body 留出底部空间 */
+body {
+  padding-bottom: 80px;
+}

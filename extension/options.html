@@ -35,14 +35,6 @@
       <input type="number" id="updateInterval" min="1" max="1440" value="5">
       <small>后台自动同步书签数据的时间间隔，最少 1 分钟</small>
     </div>
-
-    <div class="actions">
-      <button class="btn btn-primary" id="saveBtn">保存配置</button>
-      <button class="btn btn-secondary" id="testBtn">测试连接</button>
-      <button class="btn btn-secondary" id="syncBtn">立即同步</button>
-    </div>
-
-    <div class="status" id="status"></div>
   </div>
 
   <div class="card">
@@ -98,6 +90,18 @@
         <span class="status-label">上次同步</span>
         <span class="status-value" id="statusLastFetch">-</span>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部固定操作栏 -->
+<div class="bottom-bar">
+  <div class="bottom-bar-inner">
+    <div class="status" id="status"></div>
+    <div class="bottom-actions">
+      <button class="btn btn-secondary" id="testBtn">测试连接</button>
+      <button class="btn btn-secondary" id="syncBtn">立即同步</button>
+      <button class="btn btn-primary" id="saveBtn">保存配置</button>
     </div>
   </div>
 </div>

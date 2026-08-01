@@ -351,16 +351,18 @@ function closePanel() {
 
 // === 搜索 ===
 const SEARCH_ENGINES = {
-  bing: 'https://cn.bing.com/search?q=',
-  google: 'https://www.google.com/search?q=',
-  baidu: 'https://www.baidu.com/s?wd='
+  bing: { name: 'Bing', url: 'https://cn.bing.com/search?q=' },
+  google: { name: 'Google', url: 'https://www.google.com/search?q=' },
+  baidu: { name: '百度', url: 'https://www.baidu.com/s?wd=' }
 };
 
-async function getSearchEngine() {
+let currentSearchEngine = 'bing';
+
+async function loadSearchEngine() {
   const config = await new Promise(resolve => {
     chrome.storage.local.get({ searchEngine: 'bing' }, resolve);
   });
-  return config.searchEngine;
+  currentSearchEngine = config.searchEngine;
 }
 
 function openSearch(query) {
@@ -371,11 +373,8 @@ function openSearch(query) {
     window.location.href = v.startsWith('http') ? v : 'https://' + v;
     return;
   }
-  // 否则用搜索引擎搜索
-  getSearchEngine().then(engine => {
-    const url = SEARCH_ENGINES[engine] || SEARCH_ENGINES.bing;
-    window.location.href = url + encodeURIComponent(v);
-  });
+  const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.bing;
+  window.location.href = engine.url + encodeURIComponent(v);
 }
 
 function setupSearch() {
@@ -389,13 +388,18 @@ function setupSearch() {
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
   });
 
+  // 回车不再自动跳搜索引擎，需明确点击搜索按钮或搜索提示条
+  // 仅在输入网址时回车直接跳转
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
-      openSearch(input.value);
+      const v = input.value.trim();
+      if (v && (v.startsWith('http') || v.includes('.'))) {
+        window.location.href = v.startsWith('http') ? v : 'https://' + v;
+      }
     }
   });
 
-  // 右侧搜索按钮
+  // 右侧搜索按钮 → 搜索引擎
   document.getElementById('searchGo').addEventListener('click', () => {
     openSearch(input.value);
   });
@@ -405,8 +409,17 @@ function performSearch(keyword) {
   keyword = keyword.toLowerCase();
   const categories = getCategories();
   const content = document.getElementById('content');
+  const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.bing;
 
-  let html = '', found = false;
+  // 搜索引擎提示条（放在最上面）
+  const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
+  const searchUrl = engine.url + encodeURIComponent(keyword);
+  let html = `<a class="search-engine-hint" href="${escAttr(searchUrl)}" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+    在 ${escHtml(engine.name)} 中搜索「${escHtml(displayKeyword)}」
+  </a>`;
+
+  let found = false;
   categories.forEach(cat => {
     const matched = cat.items.filter(item =>
       item.title.toLowerCase().includes(keyword) || item.url.toLowerCase().includes(keyword)
@@ -426,7 +439,9 @@ function performSearch(keyword) {
       html += '</div>';
     }
   });
+
   if (!found) html += '<div class="empty">未找到匹配的书签</div>';
+
   content.innerHTML = html;
   loadFavicons();
 }
@@ -509,6 +524,7 @@ function removeWallpaper() {
 
 // === 初始化 ===
 initTheme();
+loadSearchEngine();
 updateClock();
 updateCalendar();
 setInterval(updateClock, 10000);
