@@ -244,8 +244,18 @@ async function recordVisit(url, title) {
     counts[url] = { count: 0, title: title || url };
   }
   counts[url].count++;
-  counts[url].title = title || counts[url].title; // 更新标题
-  chrome.storage.local.set({ visitCounts: counts });
+  counts[url].title = title || counts[url].title;
+
+  // 只保留前10个，删除多余的
+  const sorted = Object.entries(counts)
+    .sort((a, b) => b[1].count - a[1].count);
+  if (sorted.length > 10) {
+    const trimmed = {};
+    sorted.slice(0, 10).forEach(([k, v]) => { trimmed[k] = v; });
+    chrome.storage.local.set({ visitCounts: trimmed });
+  } else {
+    chrome.storage.local.set({ visitCounts: counts });
+  }
 }
 
 async function getTopVisited(limit = 10) {
@@ -308,7 +318,7 @@ function renderMainView() {
   const validCategories = categories.filter(c => c.items.length > 0);
   validCategories.forEach((cat, i) => {
     const shortName = cat.category.split(' / ').pop();
-    const isActive = activeCat !== null && categories[activeCat]?.category === cat.category;
+    const isActive = activeCat === cat.category;
     const count = cat.items.length;
 
     html += `<div class="cat-card ${isActive ? 'active' : ''}" data-cat="${escAttr(cat.category)}" data-idx="${i}">
@@ -319,8 +329,8 @@ function renderMainView() {
   });
   html += '</div>';
 
-  // 书签展开面板
-  if (activeCat !== null && activeCat >= 0 && activeCat < categories.length) {
+  // 书签展开面板 - activeCat 现在存的是 category 名
+  if (activeCat) {
     html += renderBookmarkPanel(activeCat);
   }
 
@@ -338,12 +348,11 @@ function renderMainView() {
   });
 }
 
-function renderBookmarkPanel(catIdx) {
+function renderBookmarkPanel(categoryName) {
   const categories = getCategories();
-  const cat = categories[catIdx];
+  const cat = categories.find(c => c.category === categoryName);
+  const idx = categories.findIndex(c => c.category === categoryName);
   if (!cat) return '';
-
-  const categoryName = cat.category;
 
   if (cat.items.length === 0) {
     return '<div class="bookmark-panel"><div class="empty">该目录下没有书签</div></div>';
@@ -395,11 +404,11 @@ function bindContentEvents() {
     if (tvItem) {
       recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
     }
-    // 目录卡片点击
-    const card = e.target.closest('.cat-card[data-idx]');
+    // 目录卡片点击 - 用 data-cat 匹配 category 名
+    const card = e.target.closest('.cat-card[data-cat]');
     if (card) {
-      const idx = parseInt(card.dataset.idx, 10);
-      activeCat = (activeCat === idx) ? null : idx;
+      const catName = card.dataset.cat;
+      activeCat = (activeCat === catName) ? null : catName;
       isSearchMode = false;
       renderMainView();
       return;
