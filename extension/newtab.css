@@ -7,17 +7,13 @@
   --bg3: #0f3460;
   --card: rgba(255,255,255,0.06);
   --card-hover: rgba(255,255,255,0.1);
-  --card-active: rgba(123,138,214,0.12);
   --text: #e0e0e0;
   --text2: #a0a0b0;
   --primary: #7b8ad6;
   --primary-dark: #5b6abf;
-  --accent: #e67e22;
   --border: rgba(255,255,255,0.08);
   --border-active: rgba(123,138,214,0.4);
-  --radius: 12px;
   --shadow: 0 4px 20px rgba(0,0,0,0.3);
-  --topbar-bg: rgba(0,0,0,0.25);
   --weather-bg: rgba(255,255,255,0.06);
   --calendar-bg: rgba(255,255,255,0.06);
   --bm-icon-bg: rgba(123,138,214,0.12);
@@ -30,16 +26,13 @@
   --bg3: #dde1e8;
   --card: rgba(255,255,255,0.85);
   --card-hover: rgba(255,255,255,0.95);
-  --card-active: rgba(91,106,191,0.08);
   --text: #2c3e50;
   --text2: #8795a1;
   --primary: #5b6abf;
   --primary-dark: #4a57a3;
-  --accent: #e67e22;
   --border: rgba(0,0,0,0.08);
   --border-active: rgba(91,106,191,0.4);
   --shadow: 0 4px 20px rgba(0,0,0,0.08);
-  --topbar-bg: rgba(255,255,255,0.7);
   --weather-bg: rgba(0,0,0,0.04);
   --calendar-bg: rgba(0,0,0,0.04);
   --bm-icon-bg: rgba(91,106,191,0.08);
@@ -84,7 +77,6 @@ body.has-wallpaper > * {
   padding: 0 20px;
   background: transparent;
   z-index: 100;
-  border-bottom: none;
 }
 
 .topbar-left, .topbar-right {
@@ -347,7 +339,7 @@ body.has-wallpaper > * {
 
 .search-box input::placeholder { color: var(--text2); }
 
-/* === 最常使用 === */
+/* === 最近使用 === */
 .top-visited {
   margin-bottom: 20px;
 }
@@ -436,13 +428,6 @@ body.has-wallpaper > * {
 }
 
 [data-theme="light"] .top-visited-name { text-shadow: none; }
-
-.top-visited-count {
-  font-size: 11px;
-  color: rgba(255,255,255,0.5);
-}
-
-[data-theme="light"] .top-visited-count { color: var(--text2); }
 
 /* 晃动模式 */
 @keyframes shake {

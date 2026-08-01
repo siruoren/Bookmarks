@@ -2,7 +2,7 @@
 let allCategories = [];
 let activeCat = null;
 let isSearchMode = false;
-let isShakeMode = false;  // 最常使用长按晃动模式
+let isShakeMode = false;  // 最近使用长按晃动模式
 
 // 分类图标
 const CAT_ICONS = ['📂','🎬','📝','💻','🎮','🎧','🔧','🏠','📚','💰','🛒','✈️','🖼️','👔','🔗','🌍','📊','🗂️','⚙️','🧰','📁','🔔','📌','🎯'];
@@ -198,13 +198,6 @@ function replaceIcon(el, src) {
   el.appendChild(i);
 }
 
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2000);
-}
-
 // === 数据加载 ===
 function loadFromCache() {
   return new Promise(resolve => {
@@ -249,45 +242,41 @@ async function loadData() {
   }
 }
 
-// === 最常使用 ===
+// === 最近使用 ===
 async function recordVisit(url, title) {
   if (!url) return;
   const result = await new Promise(resolve => {
     chrome.storage.local.get({ visitCounts: {} }, resolve);
   });
-  const counts = result.visitCounts;
-  if (!counts[url]) {
-    counts[url] = { count: 0, title: title || url };
-  }
-  counts[url].count++;
-  counts[url].title = title || counts[url].title;
-  chrome.storage.local.set({ visitCounts: counts });
+  result.visitCounts[url] = {
+    title: title || url,
+    lastVisit: Date.now()
+  };
+  chrome.storage.local.set({ visitCounts: result.visitCounts });
 }
 
 async function removeVisited(url) {
   const result = await new Promise(resolve => {
     chrome.storage.local.get({ visitCounts: {} }, resolve);
   });
-  const counts = result.visitCounts;
-  delete counts[url];
-  chrome.storage.local.set({ visitCounts: counts });
-  // 重新渲染
+  delete result.visitCounts[url];
+  chrome.storage.local.set({ visitCounts: result.visitCounts });
   refreshTopVisited();
 }
 
-async function getTopVisited() {
+async function getRecentVisited() {
   const result = await new Promise(resolve => {
     chrome.storage.local.get({ visitCounts: {} }, resolve);
   });
   return Object.entries(result.visitCounts)
-    .map(([url, data]) => ({ url, title: data.title, count: data.count }))
-    .sort((a, b) => b.count - a.count);
+    .map(([url, data]) => ({ url, title: data.title, lastVisit: data.lastVisit || 0 }))
+    .sort((a, b) => b.lastVisit - a.lastVisit);
 }
 
 function renderTopVisited(items) {
   if (!items || items.length === 0) return '';
   let html = '<div class="top-visited">';
-  html += '<div class="top-visited-title">最常使用</div>';
+  html += '<div class="top-visited-title">最近使用</div>';
   html += '<div class="top-visited-grid">';
   items.forEach(item => {
     const t = escHtml(cleanTitle(item.title));
@@ -296,7 +285,6 @@ function renderTopVisited(items) {
       ${bmIconHtml(item.url, item.title)}
       <div class="top-visited-info">
         <div class="top-visited-name">${t}</div>
-        <div class="top-visited-count">${item.count} 次</div>
       </div>
     </a>`;
   });
@@ -307,7 +295,7 @@ function renderTopVisited(items) {
 async function refreshTopVisited() {
   const slot = document.getElementById('topVisitedSlot');
   if (!slot) return;
-  const items = await getTopVisited();
+  const items = await getRecentVisited();
   if (items.length > 0) {
     slot.innerHTML = renderTopVisited(items);
     loadFavicons();
@@ -351,15 +339,15 @@ function renderMainView() {
   html += '</div>';
 
   if (activeCat) {
-    html += renderBookmarkPanel(activeCat);
+    html += renderBookmarkPanel(activeCat, validCategories);
   }
 
   content.innerHTML = html;
   bindContentEvents();
   loadFavicons();
 
-  // 异步填充最常使用
-  getTopVisited().then(items => {
+  // 异步填充最近使用
+  getRecentVisited().then(items => {
     const slot = document.getElementById('topVisitedSlot');
     if (slot && items.length > 0) {
       slot.innerHTML = renderTopVisited(items);
@@ -368,9 +356,7 @@ function renderMainView() {
   });
 }
 
-function renderBookmarkPanel(categoryName) {
-  const categories = getCategories();
-  const validCategories = categories.filter(c => c.items.length > 0);
+function renderBookmarkPanel(categoryName, validCategories) {
   const catIdx = validCategories.findIndex(c => c.category === categoryName);
   const cat = validCategories[catIdx];
   if (!cat) return '';
@@ -410,7 +396,14 @@ function bindContentEvents() {
   const content = document.getElementById('content');
 
   content.addEventListener('click', (e) => {
-    // 移除最常使用条目
+    // 晃动模式下点击非最近使用区域 → 退出晃动模式
+    if (isShakeMode && !e.target.closest('.top-visited-item')) {
+      isShakeMode = false;
+      refreshTopVisited();
+      return;
+    }
+
+    // 移除最近使用条目
     const removeBtn = e.target.closest('[data-action="remove-visited"]');
     if (removeBtn) {
       e.preventDefault();
@@ -427,7 +420,7 @@ function bindContentEvents() {
       recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
     }
 
-    // 最常使用点击 - 晃动模式下阻止跳转
+    // 最近使用点击 - 晃动模式下阻止跳转
     const tvItem = e.target.closest('a.top-visited-item[href]');
     if (tvItem) {
       if (isShakeMode) { e.preventDefault(); return; }
@@ -451,7 +444,7 @@ function bindContentEvents() {
     }
   });
 
-  // 长按最常使用 → 进入/退出晃动模式
+  // 长按最近使用 → 进入/退出晃动模式
   content.addEventListener('pointerdown', (e) => {
     const tvItem = e.target.closest('.top-visited-item');
     if (!tvItem) return;
