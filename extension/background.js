@@ -51,7 +51,7 @@ function getConfig() {
   });
 }
 
-// 同步书签数据
+// 同步书签数据（增量：先检查后端更新时间）
 async function syncBookmarks() {
   const config = await getConfig();
 
@@ -72,6 +72,40 @@ async function syncBookmarks() {
   }
 
   try {
+    // 先获取后端更新时间，与本地缓存比较
+    const cached = await new Promise(resolve => {
+      chrome.storage.local.get(['bookmarksCache'], result => {
+        resolve(result.bookmarksCache || null);
+      });
+    });
+    const localUpdateTime = cached ? (cached.last_update || 0) : 0;
+
+    const timeResp = await fetch(`${serverUrl}/api/update_time`, {
+      headers,
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (!timeResp.ok) {
+      if (timeResp.status === 401) {
+        console.error('[Bookmarks] 认证失败: API Key 不正确');
+      } else {
+        console.error('[Bookmarks] 检查更新时间失败:', timeResp.status);
+      }
+      return;
+    }
+
+    const timeData = await timeResp.json();
+    const remoteUpdateTime = timeData.last_update || 0;
+
+    // 本地缓存时间 >= 后端更新时间，无需更新
+    if (localUpdateTime > 0 && localUpdateTime >= remoteUpdateTime) {
+      console.log(`[Bookmarks] 数据无更新，跳过同步 (本地: ${new Date(localUpdateTime * 1000).toLocaleString('zh-CN')}, 远程: ${new Date(remoteUpdateTime * 1000).toLocaleString('zh-CN')})`);
+      return;
+    }
+
+    // 需要更新，拉取完整书签数据
+    console.log(`[Bookmarks] 检测到更新，正在同步... (本地: ${localUpdateTime > 0 ? new Date(localUpdateTime * 1000).toLocaleString('zh-CN') : '无'}, 远程: ${new Date(remoteUpdateTime * 1000).toLocaleString('zh-CN')})`);
+
     const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
 
     if (!resp.ok) {
@@ -85,13 +119,6 @@ async function syncBookmarks() {
 
     const data = await resp.json();
     data._fetchTime = Date.now();
-
-    // 获取当前缓存，比较是否有更新
-    const cached = await new Promise(resolve => {
-      chrome.storage.local.get(['bookmarksCache'], result => {
-        resolve(result.bookmarksCache || null);
-      });
-    });
 
     // 保存到缓存
     chrome.storage.local.set({ bookmarksCache: data });

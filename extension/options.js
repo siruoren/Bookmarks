@@ -80,22 +80,38 @@ async function testConnection() {
   }
 
   try {
-    const resp = await fetch(`${fetchUrl}/api/bookmarks`, {
+    // 先测试轻量接口
+    const resp = await fetch(`${fetchUrl}/api/update_time`, {
       headers,
       signal: AbortSignal.timeout(8000)
     });
 
     if (resp.ok) {
-      const data = await resp.json();
-      showStatus(`连接成功! 共 ${data.total || 0} 个书签`, 'success');
+      // 再获取书签数量
+      const bmResp = await fetch(`${fetchUrl}/api/bookmarks`, {
+        headers,
+        signal: AbortSignal.timeout(15000)
+      });
+      if (bmResp.ok) {
+        const data = await bmResp.json();
+        showStatus(`连接成功! 共 ${data.total || 0} 个书签`, 'success');
+      } else if (bmResp.status === 401) {
+        showStatus('认证失败: 密码不正确', 'error');
+      } else {
+        showStatus(`连接成功（服务器可达），但获取书签失败: HTTP ${bmResp.status}`, 'error');
+      }
     } else if (resp.status === 401) {
       showStatus('认证失败: 密码不正确', 'error');
+    } else if (resp.status === 501) {
+      showStatus('服务器返回 501：请确认后端服务运行正常，且 FRP 代理类型为 http 而非 tcp', 'error');
     } else {
       showStatus(`连接失败: HTTP ${resp.status}`, 'error');
     }
   } catch (e) {
     if (e.name === 'TimeoutError') {
-      showStatus('连接超时，请检查地址是否正确', 'error');
+      showStatus('连接超时，请检查地址是否正确、服务是否运行', 'error');
+    } else if (e.message && e.message.includes('Failed to fetch')) {
+      showStatus('网络错误：请检查地址是否可达，若使用 FRP 隧道请确认代理类型为 http', 'error');
     } else {
       showStatus(`连接失败: ${e.message}`, 'error');
     }

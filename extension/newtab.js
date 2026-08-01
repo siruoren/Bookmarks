@@ -247,14 +247,14 @@ function renderMainView() {
 
   let html = '';
 
-  // 目录卡片网格 - 显示所有分类
+  // 目录卡片网格 - 用 data-idx 索引代替目录名，避免转义问题
   html += '<div class="category-grid">';
   categories.forEach((cat, i) => {
     const shortName = cat.category.split(' / ').pop();
-    const isActive = activeCat === cat.category;
+    const isActive = activeCat === i;
     const count = cat.items.length;
 
-    html += `<div class="cat-card ${isActive ? 'active' : ''}" onclick="toggleCategory('${escJs(cat.category)}')">
+    html += `<div class="cat-card ${isActive ? 'active' : ''}" data-idx="${i}">
       <div class="cat-icon ico-${i % 8}">${catIcon(i)}</div>
       <div class="cat-name">${escHtml(shortName)}</div>
       <div class="cat-count">${count > 0 ? count + ' 书签' : ''}</div>
@@ -263,20 +263,23 @@ function renderMainView() {
   html += '</div>';
 
   // 书签展开面板
-  if (activeCat) {
+  if (activeCat !== null && activeCat >= 0 && activeCat < categories.length) {
     html += renderBookmarkPanel(activeCat);
   }
 
   content.innerHTML = html;
+  bindContentEvents();
   loadFavicons();
 }
 
-function renderBookmarkPanel(categoryName) {
+function renderBookmarkPanel(catIdx) {
   const categories = getCategories();
-  const cat = categories.find(c => c.category === categoryName);
-  const idx = categories.findIndex(c => c.category === categoryName);
+  const cat = categories[catIdx];
+  if (!cat) return '';
 
-  if (!cat || cat.items.length === 0) {
+  const categoryName = cat.category;
+
+  if (cat.items.length === 0) {
     return '<div class="bookmark-panel"><div class="empty">该目录下没有书签</div></div>';
   }
 
@@ -286,11 +289,11 @@ function renderBookmarkPanel(categoryName) {
   const shortName = categoryName.split(' / ').pop();
   const parentPath = categoryName.includes(' / ') ? categoryName.substring(0, categoryName.lastIndexOf(' / ')) : '';
   html += '<div class="bookmark-panel-header">';
-  html += `<span class="panel-icon ico-${idx >= 0 ? idx % 8 : 0}">${catIcon(idx >= 0 ? idx : 0)}</span>`;
+  html += `<span class="panel-icon ico-${catIdx % 8}">${catIcon(catIdx)}</span>`;
   html += `<span class="panel-title">${escHtml(shortName)}</span>`;
   if (parentPath) html += `<span class="panel-path">${escHtml(parentPath)}</span>`;
   html += `<span class="panel-count">${cat.items.length} 个书签</span>`;
-  html += '<div class="panel-close" onclick="closePanel()">✕</div>';
+  html += '<div class="panel-close" data-action="close-panel">✕</div>';
   html += '</div>';
 
   // 书签列表
@@ -310,10 +313,28 @@ function renderBookmarkPanel(categoryName) {
 }
 
 // === 交互 ===
-function toggleCategory(name) {
-  activeCat = (activeCat === name) ? null : name;
-  isSearchMode = false;
-  renderMainView();
+let contentEventsBound = false;
+function bindContentEvents() {
+  if (contentEventsBound) return;
+  contentEventsBound = true;
+  // 目录卡片点击 - 事件委托，只绑定一次
+  const content = document.getElementById('content');
+  content.addEventListener('click', (e) => {
+    const card = e.target.closest('.cat-card[data-idx]');
+    if (card) {
+      const idx = parseInt(card.dataset.idx, 10);
+      activeCat = (activeCat === idx) ? null : idx;
+      isSearchMode = false;
+      renderMainView();
+      return;
+    }
+    const closeBtn = e.target.closest('[data-action="close-panel"]');
+    if (closeBtn) {
+      activeCat = null;
+      renderMainView();
+      return;
+    }
+  });
 }
 
 function closePanel() {
@@ -389,6 +410,11 @@ chrome.runtime.onMessage.addListener((msg) => {
 document.getElementById('settingsBtn').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
+
+// === 天气/主题交互绑定（MV3 不允许 inline onclick） ===
+document.getElementById('weatherIcon').addEventListener('click', toggleCityInput);
+document.getElementById('weatherCityInput').addEventListener('keydown', handleCityInput);
+document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
 // === 初始化 ===
 initTheme();
