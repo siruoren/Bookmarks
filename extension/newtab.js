@@ -233,6 +233,51 @@ async function loadData() {
   }
 }
 
+// === 最常使用 ===
+async function recordVisit(url, title) {
+  if (!url) return;
+  const result = await new Promise(resolve => {
+    chrome.storage.local.get({ visitCounts: {} }, resolve);
+  });
+  const counts = result.visitCounts;
+  if (!counts[url]) {
+    counts[url] = { count: 0, title: title || url };
+  }
+  counts[url].count++;
+  counts[url].title = title || counts[url].title; // 更新标题
+  chrome.storage.local.set({ visitCounts: counts });
+}
+
+async function getTopVisited(limit = 10) {
+  const result = await new Promise(resolve => {
+    chrome.storage.local.get({ visitCounts: {} }, resolve);
+  });
+  const counts = result.visitCounts;
+  return Object.entries(counts)
+    .map(([url, data]) => ({ url, title: data.title, count: data.count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function renderTopVisited(items) {
+  if (!items || items.length === 0) return '';
+  let html = '<div class="top-visited">';
+  html += '<div class="top-visited-title">最常使用</div>';
+  html += '<div class="top-visited-grid">';
+  items.forEach(item => {
+    const t = escHtml(cleanTitle(item.title));
+    html += `<a class="top-visited-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+      ${bmIconHtml(item.url, item.title)}
+      <div class="top-visited-info">
+        <div class="top-visited-name">${t}</div>
+        <div class="top-visited-count">${item.count} 次</div>
+      </div>
+    </a>`;
+  });
+  html += '</div></div>';
+  return html;
+}
+
 // === 目录信息 ===
 function getCategories() {
   return allCategories.filter(c => c.category !== '__root_bookmarks__');
@@ -254,17 +299,22 @@ function renderMainView() {
 
   let html = '';
 
+  // 最常使用（异步渲染）
+  html += '<div id="topVisitedSlot"></div>';
+
   // 目录卡片网格 - 用 data-idx 索引代替目录名，避免转义问题
   html += '<div class="category-grid">';
-  categories.forEach((cat, i) => {
+  // 过滤掉没有书签的目录，重新索引
+  const validCategories = categories.filter(c => c.items.length > 0);
+  validCategories.forEach((cat, i) => {
     const shortName = cat.category.split(' / ').pop();
-    const isActive = activeCat === i;
+    const isActive = activeCat !== null && categories[activeCat]?.category === cat.category;
     const count = cat.items.length;
 
-    html += `<div class="cat-card ${isActive ? 'active' : ''}" data-idx="${i}">
+    html += `<div class="cat-card ${isActive ? 'active' : ''}" data-cat="${escAttr(cat.category)}" data-idx="${i}">
       <div class="cat-icon ico-${i % 8}">${catIcon(i)}</div>
       <div class="cat-name">${escHtml(shortName)}</div>
-      <div class="cat-count">${count > 0 ? count + ' 书签' : ''}</div>
+      <div class="cat-count">${count} 书签</div>
     </div>`;
   });
   html += '</div>';
@@ -277,6 +327,15 @@ function renderMainView() {
   content.innerHTML = html;
   bindContentEvents();
   loadFavicons();
+
+  // 异步填充最常使用
+  getTopVisited(10).then(items => {
+    const slot = document.getElementById('topVisitedSlot');
+    if (slot && items.length > 0) {
+      slot.innerHTML = renderTopVisited(items);
+      loadFavicons();
+    }
+  });
 }
 
 function renderBookmarkPanel(catIdx) {
@@ -327,6 +386,16 @@ function bindContentEvents() {
   // 目录卡片点击 - 事件委托，只绑定一次
   const content = document.getElementById('content');
   content.addEventListener('click', (e) => {
+    // 书签点击 → 记录访问
+    const bmItem = e.target.closest('a.bookmark-item[href]');
+    if (bmItem) {
+      recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
+    }
+    const tvItem = e.target.closest('a.top-visited-item[href]');
+    if (tvItem) {
+      recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
+    }
+    // 目录卡片点击
     const card = e.target.closest('.cat-card[data-idx]');
     if (card) {
       const idx = parseInt(card.dataset.idx, 10);
