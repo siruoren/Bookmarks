@@ -397,6 +397,52 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
+// 统一管理折叠状态：输入框聚焦 / 有内容 / 目录展开 任一为 true 则折叠
+function updateFoldState() {
+  const input = document.getElementById('searchInput');
+  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
+  document.querySelector('.container').classList.toggle('searching', shouldFold);
+}
+
+// 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
+function toggleCategory(catName) {
+  activeCat = (activeCat === catName) ? null : catName;
+  isSearchMode = false;
+  updateFoldState();
+
+  const content = document.getElementById('content');
+
+  // 更新卡片高亮状态
+  content.querySelectorAll('.cat-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.cat === activeCat);
+  });
+
+  // 移除旧面板
+  const oldPanel = content.querySelector('.bookmark-panel');
+  if (oldPanel) oldPanel.remove();
+
+  // 添加新面板
+  if (activeCat) {
+    const validCategories = getValidCategories();
+    const panelHtml = renderBookmarkPanel(activeCat, validCategories);
+    if (panelHtml) {
+      const grid = content.querySelector('.category-grid');
+      grid.insertAdjacentHTML('afterend', panelHtml);
+      loadFavicons();
+    }
+  }
+}
+
+// 关闭书签面板
+function closeBookmarkPanel() {
+  activeCat = null;
+  updateFoldState();
+  const content = document.getElementById('content');
+  content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
+  const panel = content.querySelector('.bookmark-panel');
+  if (panel) panel.remove();
+}
+
 // === 交互 ===
 let contentEventsBound = false;
 let longPressTimer = null;
@@ -441,16 +487,13 @@ function bindContentEvents() {
     // 目录卡片点击
     const card = e.target.closest('.cat-card[data-cat]');
     if (card) {
-      activeCat = (activeCat === card.dataset.cat) ? null : card.dataset.cat;
-      isSearchMode = false;
-      renderMainView();
+      toggleCategory(card.dataset.cat);
       return;
     }
 
     const closeBtn = e.target.closest('[data-action="close-panel"]');
     if (closeBtn) {
-      activeCat = null;
-      renderMainView();
+      closeBookmarkPanel();
       return;
     }
   });
@@ -501,19 +544,13 @@ function openSearch(query) {
 
 function setupSearch() {
   const input = document.getElementById('searchInput');
-  const container = document.querySelector('.container');
   let timer = null;
 
-  // 聚焦即触发上移
-  input.addEventListener('focus', () => {
-    container.classList.add('searching');
-  });
+  input.addEventListener('focus', updateFoldState);
 
-  // 失焦且无输入时恢复
   input.addEventListener('blur', () => {
-    if (!input.value.trim()) {
-      container.classList.remove('searching');
-    }
+    // 延迟检查，避免点击目录时 blur 先触发导致闪烁
+    setTimeout(updateFoldState, 50);
   });
 
   input.addEventListener('input', () => {
@@ -522,6 +559,7 @@ function setupSearch() {
     if (!v) {
       isSearchMode = false;
       renderMainView();
+      updateFoldState();
       return;
     }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
