@@ -208,6 +208,11 @@ body.has-wallpaper > * {
 
 .theme-toggle:hover { background: var(--card-hover); }
 
+[data-theme="light"] .theme-toggle {
+  background: rgba(91,106,191,0.08);
+  color: #4a5568;
+}
+
 /* === 设置按钮 === */
 .settings-btn {
   width: 36px;
@@ -223,6 +228,11 @@ body.has-wallpaper > * {
 }
 
 .settings-btn:hover { background: var(--card-hover); color: var(--text); }
+
+[data-theme="light"] .settings-btn {
+  background: rgba(91,106,191,0.08);
+  color: #4a5568;
+}
 
 /* === 主容器 === */
 .container {
