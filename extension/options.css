@@ -43,7 +43,7 @@ body {
   margin-bottom: 18px;
 }
 
-.form-group label {
+.form-group label:first-child {
   display: block;
   font-size: 13px;
   font-weight: 600;
@@ -53,7 +53,8 @@ body {
 
 .form-group input[type="text"],
 .form-group input[type="password"],
-.form-group input[type="number"] {
+.form-group input[type="number"],
+.form-group select {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid #e8ecf1;
@@ -62,9 +63,11 @@ body {
   outline: none;
   transition: border-color 0.2s;
   color: #2c3e50;
+  background: #fff;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
   border-color: #5b6abf;
   box-shadow: 0 0 0 3px rgba(91,106,191,0.1);
 }
@@ -98,13 +101,6 @@ body {
 }
 
 .toggle-pwd:hover { opacity: 1; }
-
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
 
 .btn {
   padding: 10px 20px;
@@ -160,4 +156,79 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: #2c3e50;
+}
+
+/* 开关样式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #ccc;
+  border-radius: 24px;
+  transition: background 0.2s;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.switch input:checked + .slider { background: #5b6abf; }
+.switch input:checked + .slider::before { transform: translateX(18px); }
+
+/* 底部固定操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e8ecf1;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  z-index: 100;
+}
+
+.bottom-bar-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bottom-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.bottom-bar .status {
+  margin-top: 0;
+  font-size: 13px;
+  min-height: 0;
+}
+
+/* body 留出底部空间 */
+body {
+  padding-bottom: 80px;
 }
