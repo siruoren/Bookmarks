@@ -3,7 +3,11 @@
 const DEFAULTS = {
   serverUrl: '',
   apiPassword: '',
-  updateInterval: 5
+  updateInterval: 5,
+  enableWallpaper: true,
+  searchEngine: 'bing',
+  theme: 'dark',
+  weatherCity: ''
 };
 
 // 内部请求时将协议转为浏览器 fetch 支持的 http/https
@@ -26,6 +30,10 @@ function loadConfig() {
     document.getElementById('serverUrl').value = config.serverUrl;
     document.getElementById('apiPassword').value = config.apiPassword;
     document.getElementById('updateInterval').value = config.updateInterval;
+    document.getElementById('enableWallpaper').checked = config.enableWallpaper;
+    document.getElementById('searchEngine').value = config.searchEngine;
+    document.getElementById('theme').value = config.theme;
+    document.getElementById('weatherCity').value = config.weatherCity;
     updateStatus();
   });
 }
@@ -35,6 +43,10 @@ function saveConfig() {
   const serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/+$/, '');
   const apiPassword = document.getElementById('apiPassword').value;
   const updateInterval = parseInt(document.getElementById('updateInterval').value) || 5;
+  const enableWallpaper = document.getElementById('enableWallpaper').checked;
+  const searchEngine = document.getElementById('searchEngine').value;
+  const theme = document.getElementById('theme').value;
+  const weatherCity = document.getElementById('weatherCity').value.trim();
 
   if (!serverUrl) {
     showStatus('请输入服务地址', 'error');
@@ -52,7 +64,7 @@ function saveConfig() {
   }
 
   // 保存原始输入，不做转换
-  chrome.storage.local.set({ serverUrl, apiPassword, updateInterval }, () => {
+  chrome.storage.local.set({ serverUrl, apiPassword, updateInterval, enableWallpaper, searchEngine, theme, weatherCity }, () => {
     showStatus('配置已保存', 'success');
     updateStatus();
   });

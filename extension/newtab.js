@@ -57,17 +57,19 @@ function getLunarInfo(date) {
 }
 
 // === 主题 ===
-function initTheme() {
-  const saved = localStorage.getItem('ext_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeIcon(saved);
+async function initTheme() {
+  const result = await new Promise(resolve => {
+    chrome.storage.local.get({ theme: 'dark' }, resolve);
+  });
+  document.documentElement.setAttribute('data-theme', result.theme);
+  updateThemeIcon(result.theme);
 }
 
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('ext_theme', next);
+  chrome.storage.local.set({ theme: next });
   updateThemeIcon(next);
 }
 
@@ -112,20 +114,25 @@ function updateWeatherDisplay(data) {
 }
 
 async function initWeather() {
-  const city = localStorage.getItem('ext_weather_city') || '';
-  if (city) {
-    const data = await fetchWeather(city);
+  const result = await new Promise(resolve => {
+    chrome.storage.local.get({ weatherCity: '' }, resolve);
+  });
+  if (result.weatherCity) {
+    const data = await fetchWeather(result.weatherCity);
     if (data) updateWeatherDisplay(data);
   }
 }
 
-function toggleCityInput() {
+async function toggleCityInput() {
   const input = document.getElementById('weatherCityInput');
   if (input.classList.contains('show')) {
     input.classList.remove('show');
   } else {
     input.classList.add('show');
-    input.value = localStorage.getItem('ext_weather_city') || '';
+    const result = await new Promise(resolve => {
+      chrome.storage.local.get({ weatherCity: '' }, resolve);
+    });
+    input.value = result.weatherCity;
     input.focus();
   }
 }
@@ -134,7 +141,7 @@ function handleCityInput(event) {
   if (event.key === 'Enter') {
     const city = event.target.value.trim();
     if (city) {
-      localStorage.setItem('ext_weather_city', city);
+      chrome.storage.local.set({ weatherCity: city });
       event.target.classList.remove('show');
       fetchWeather(city).then(data => { if (data) updateWeatherDisplay(data); });
     }
@@ -343,6 +350,34 @@ function closePanel() {
 }
 
 // === 搜索 ===
+const SEARCH_ENGINES = {
+  bing: 'https://cn.bing.com/search?q=',
+  google: 'https://www.google.com/search?q=',
+  baidu: 'https://www.baidu.com/s?wd='
+};
+
+async function getSearchEngine() {
+  const config = await new Promise(resolve => {
+    chrome.storage.local.get({ searchEngine: 'bing' }, resolve);
+  });
+  return config.searchEngine;
+}
+
+function openSearch(query) {
+  const v = query.trim();
+  if (!v) return;
+  // 如果是网址直接跳转
+  if (v.startsWith('http') || v.includes('.')) {
+    window.location.href = v.startsWith('http') ? v : 'https://' + v;
+    return;
+  }
+  // 否则用搜索引擎搜索
+  getSearchEngine().then(engine => {
+    const url = SEARCH_ENGINES[engine] || SEARCH_ENGINES.bing;
+    window.location.href = url + encodeURIComponent(v);
+  });
+}
+
 function setupSearch() {
   const input = document.getElementById('searchInput');
   let timer = null;
@@ -356,11 +391,13 @@ function setupSearch() {
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
-      const v = input.value.trim();
-      if (v && (v.startsWith('http') || v.includes('.'))) {
-        window.location.href = v.startsWith('http') ? v : 'https://' + v;
-      }
+      openSearch(input.value);
     }
+  });
+
+  // 右侧搜索按钮
+  document.getElementById('searchGo').addEventListener('click', () => {
+    openSearch(input.value);
   });
 }
 
@@ -418,6 +455,16 @@ document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
 // === Bing 每日壁纸 ===
 async function loadBingWallpaper() {
+  // 读取设置，默认启用
+  const config = await new Promise(resolve => {
+    chrome.storage.local.get({ enableWallpaper: true }, resolve);
+  });
+
+  if (!config.enableWallpaper) {
+    removeWallpaper();
+    return;
+  }
+
   // 先用缓存
   const cached = localStorage.getItem('ext_bing_wallpaper');
   const cachedDate = localStorage.getItem('ext_bing_wallpaper_date');
@@ -450,6 +497,14 @@ function applyWallpaper(url) {
   document.body.style.backgroundPosition = 'center';
   document.body.style.backgroundRepeat = 'no-repeat';
   document.body.classList.add('has-wallpaper');
+}
+
+function removeWallpaper() {
+  document.body.style.backgroundImage = '';
+  document.body.style.backgroundSize = '';
+  document.body.style.backgroundPosition = '';
+  document.body.style.backgroundRepeat = '';
+  document.body.classList.remove('has-wallpaper');
 }
 
 // === 初始化 ===

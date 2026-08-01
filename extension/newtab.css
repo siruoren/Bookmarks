@@ -82,10 +82,9 @@ body.has-wallpaper > * {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  background: var(--topbar-bg);
-  backdrop-filter: blur(12px);
+  background: transparent;
   z-index: 100;
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
 }
 
 .topbar-left, .topbar-right {
@@ -270,7 +269,7 @@ body.has-wallpaper > * {
 
 .search-box input {
   width: 100%;
-  padding: 14px 20px 14px 46px;
+  padding: 14px 48px 14px 46px;
   border: 1px solid var(--border);
   border-radius: 24px;
   font-size: 16px;
@@ -280,6 +279,26 @@ body.has-wallpaper > * {
   transition: all 0.3s;
   backdrop-filter: blur(10px);
 }
+
+.search-go {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.search-go:hover { background: var(--primary-dark); }
 
 .search-box input:focus {
   background: var(--card-hover);
@@ -297,7 +316,7 @@ body.has-wallpaper > * {
   padding-bottom: 40px;
 }
 
-/* === 目录列表（紧凑文字条目） === */
+/* === 目录列表（紧凑文字条目 + 毛玻璃） === */
 .category-grid {
   display: flex;
   flex-wrap: wrap;
@@ -312,25 +331,43 @@ body.has-wallpaper > * {
   padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255,255,255,0.12);
   transition: all 0.15s;
   user-select: none;
   white-space: nowrap;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .cat-card {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.08);
 }
 
 .cat-card:hover {
-  background: var(--card-hover);
-  border-color: var(--border);
-}
-
-.cat-card.active {
-  background: var(--card-active);
+  background: rgba(0,0,0,0.5);
   border-color: var(--border-active);
 }
 
+[data-theme="light"] .cat-card:hover {
+  background: rgba(255,255,255,0.75);
+}
+
+.cat-card.active {
+  background: rgba(123,138,214,0.35);
+  border-color: var(--border-active);
+}
+
+[data-theme="light"] .cat-card.active {
+  background: rgba(91,106,191,0.18);
+}
+
 .cat-card .cat-icon { font-size: 14px; }
-.cat-card .cat-name { font-size: 13px; font-weight: 500; line-height: 1.4; }
-.cat-card .cat-count { font-size: 11px; color: var(--text2); }
+.cat-card .cat-name { font-size: 13px; font-weight: 600; line-height: 1.4; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+[data-theme="light"] .cat-card .cat-name { color: #1a1a2e; text-shadow: none; }
+.cat-card .cat-count { font-size: 11px; color: rgba(255,255,255,0.7); }
+[data-theme="light"] .cat-card .cat-count { color: var(--text2); }
 
 /* === 书签展开区（点击目录后显示在目录下方） === */
 .bookmark-panel {
@@ -412,21 +449,33 @@ body.has-wallpaper > * {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: var(--card);
+  background: rgba(0,0,0,0.35);
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.1);
   cursor: pointer;
   text-decoration: none;
-  color: var(--text);
+  color: #fff;
   transition: all 0.2s;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .bookmark-item {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.06);
+  color: var(--text);
 }
 
 .bookmark-item:hover {
-  background: var(--card-hover);
+  background: rgba(0,0,0,0.5);
   border-color: var(--primary);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .bookmark-item:hover {
+  background: rgba(255,255,255,0.75);
+  border-color: var(--primary);
 }
 
 .bookmark-item .bm-icon {
@@ -450,22 +499,27 @@ body.has-wallpaper > * {
 
 .bookmark-item .bm-title {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
+
+[data-theme="light"] .bookmark-item .bm-title { text-shadow: none; }
 
 .bookmark-item:hover .bm-title { color: var(--primary); }
 
 .bookmark-item .bm-url {
   font-size: 11px;
-  color: var(--text2);
+  color: rgba(255,255,255,0.6);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+[data-theme="light"] .bookmark-item .bm-url { color: var(--text2); }
 
 /* 搜索结果高亮 */
 .search-category {

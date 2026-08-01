@@ -46,6 +46,44 @@
   </div>
 
   <div class="card">
+    <h2>外观设置</h2>
+
+    <div class="form-group">
+      <label for="theme">主题</label>
+      <select id="theme">
+        <option value="dark">暗色</option>
+        <option value="light">亮色</option>
+      </select>
+      <small>新标签页的明暗主题</small>
+    </div>
+
+    <div class="form-group">
+      <label for="weatherCity">天气城市</label>
+      <input type="text" id="weatherCity" placeholder="如：北京、上海、Shenzhen">
+      <small>用于显示天气信息，留空则不显示</small>
+    </div>
+
+    <div class="form-group">
+      <label for="enableWallpaper">Bing 每日壁纸</label>
+      <label class="switch">
+        <input type="checkbox" id="enableWallpaper" checked>
+        <span class="slider"></span>
+      </label>
+      <small>启用后将使用 Bing 每日壁纸作为背景，禁用则使用默认纯色背景</small>
+    </div>
+
+    <div class="form-group">
+      <label for="searchEngine">搜索引擎</label>
+      <select id="searchEngine">
+        <option value="bing">Bing</option>
+        <option value="google">Google</option>
+        <option value="baidu">百度</option>
+      </select>
+      <small>搜索框回车或点击搜索按钮时使用的搜索引擎</small>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>同步状态</h2>
     <div class="status-grid">
       <div class="status-item">
