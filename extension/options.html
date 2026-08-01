@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookmarks New Tab - 设置</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Bookmarks New Tab 设置</h1>
+  </div>
+
+  <div class="card">
+    <h2>后端服务配置</h2>
+
+    <div class="form-group">
+      <label for="serverUrl">服务地址</label>
+      <input type="text" id="serverUrl" placeholder="http://192.168.1.100:5000">
+      <small>后端书签服务的完整地址（含端口），不带末尾斜杠</small>
+    </div>
+
+    <div class="form-group">
+      <label for="apiPassword">访问密码</label>
+      <div class="password-wrap">
+        <input type="password" id="apiPassword" placeholder="可选，后端配置的 API Key">
+        <button class="toggle-pwd" id="togglePwd" title="显示/隐藏">👁</button>
+      </div>
+      <small>与后端 config.yml 中 api_key 对应，未设置则留空</small>
+    </div>
+
+    <div class="form-group">
+      <label for="updateInterval">更新间隔（分钟）</label>
+      <input type="number" id="updateInterval" min="1" max="1440" value="5">
+      <small>后台自动同步书签数据的时间间隔，最少 1 分钟</small>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="saveBtn">保存配置</button>
+      <button class="btn btn-secondary" id="testBtn">测试连接</button>
+      <button class="btn btn-secondary" id="syncBtn">立即同步</button>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>同步状态</h2>
+    <div class="status-grid">
+      <div class="status-item">
+        <span class="status-label">配置状态</span>
+        <span class="status-value" id="statusConfig">未配置</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">缓存书签数</span>
+        <span class="status-value" id="statusTotal">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">上次同步</span>
+        <span class="status-value" id="statusLastFetch">-</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="options.js"></script>
+</body>
+</html>

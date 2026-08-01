@@ -15,6 +15,20 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# API Key 认证（可选，配置后对 /api/* 路由生效）
+api_key: str = ""
+
+
+@app.before_request
+def check_api_key():
+    """API Key 认证中间件：仅对 /api/ 路由生效，未配置 api_key 则放行"""
+    if not api_key or not request.path.startswith("/api/"):
+        return
+    key = request.headers.get("X-API-Key", "")
+    if key != api_key:
+        return jsonify({"error": "Unauthorized", "message": "API Key 不正确"}), 401
+
+
 # 全局状态
 bookmarks_data: List[Dict] = []
 last_update: float = 0
@@ -173,7 +187,7 @@ def refresh_bookmarks() -> bool:
 
 def apply_config(config: dict):
     """应用配置到全局状态(热加载核心)"""
-    global git_sync, scheduler, recent_max
+    global git_sync, scheduler, recent_max, api_key
 
     with config_lock:
         app.config_data = config
@@ -190,6 +204,9 @@ def apply_config(config: dict):
         # 最近访问配置
         recent_cfg = config.get("recent", {})
         recent_max = recent_cfg.get("max_count", 20)
+
+        # API Key 认证（可选）
+        api_key = config.get("api_key", "")
 
         # 停止旧调度器
         if scheduler:
