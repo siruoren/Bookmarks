@@ -283,9 +283,12 @@ function renderBookmarkPanel(categoryName) {
   let html = '<div class="bookmark-panel">';
 
   // 面板标题
+  const shortName = categoryName.split(' / ').pop();
+  const parentPath = categoryName.includes(' / ') ? categoryName.substring(0, categoryName.lastIndexOf(' / ')) : '';
   html += '<div class="bookmark-panel-header">';
   html += `<span class="panel-icon ico-${idx >= 0 ? idx % 8 : 0}">${catIcon(idx >= 0 ? idx : 0)}</span>`;
-  html += `<span class="panel-title">${escHtml(categoryName)}</span>`;
+  html += `<span class="panel-title">${escHtml(shortName)}</span>`;
+  if (parentPath) html += `<span class="panel-path">${escHtml(parentPath)}</span>`;
   html += `<span class="panel-count">${cat.items.length} 个书签</span>`;
   html += '<div class="panel-close" onclick="closePanel()">✕</div>';
   html += '</div>';
