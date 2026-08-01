@@ -416,6 +416,42 @@ document.getElementById('weatherIcon').addEventListener('click', toggleCityInput
 document.getElementById('weatherCityInput').addEventListener('keydown', handleCityInput);
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
+// === Bing 每日壁纸 ===
+async function loadBingWallpaper() {
+  // 先用缓存
+  const cached = localStorage.getItem('ext_bing_wallpaper');
+  const cachedDate = localStorage.getItem('ext_bing_wallpaper_date');
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (cached && cachedDate === today) {
+    applyWallpaper(cached);
+    return;
+  }
+
+  try {
+    const resp = await fetch('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.images && data.images.length > 0) {
+      const imgUrl = 'https://www.bing.com' + data.images[0].url;
+      applyWallpaper(imgUrl);
+      localStorage.setItem('ext_bing_wallpaper', imgUrl);
+      localStorage.setItem('ext_bing_wallpaper_date', today);
+    }
+  } catch (e) {
+    // 网络失败时用缓存（即使过期）
+    if (cached) applyWallpaper(cached);
+  }
+}
+
+function applyWallpaper(url) {
+  document.body.style.backgroundImage = `url(${url})`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.classList.add('has-wallpaper');
+}
+
 // === 初始化 ===
 initTheme();
 updateClock();
@@ -425,5 +461,6 @@ setInterval(updateCalendar, 60000);
 setupSearch();
 loadData();
 initWeather();
+loadBingWallpaper();
 
 setTimeout(() => document.getElementById('searchInput').focus(), 100);

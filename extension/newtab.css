@@ -53,6 +53,24 @@ body {
   transition: background 0.4s, color 0.4s;
 }
 
+/* 壁纸模式：加暗色遮罩保证文字可读 */
+body.has-wallpaper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 0;
+}
+
+body.has-wallpaper > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="light"] body.has-wallpaper::before {
+  background: rgba(255,255,255,0.35);
+}
+
 /* === 顶栏 === */
 .topbar {
   position: fixed;
@@ -210,7 +228,7 @@ body {
   letter-spacing: 2px;
   line-height: 1;
   color: #fff;
-  text-shadow: 0 2px 20px rgba(123,138,214,0.2);
+  text-shadow: 0 2px 20px rgba(123,138,214,0.2), 0 2px 8px rgba(0,0,0,0.5);
 }
 
 [data-theme="light"] .clock { color: #1a1a2e; text-shadow: none; }
