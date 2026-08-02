@@ -16,28 +16,9 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('clock').textContent = `${h}:${m}`;
 
-  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'});
-  document.getElementById('date').textContent = dateStr;
-
-  let greeting = '晚上好';
-  if (h >= 5 && h < 12) greeting = '早上好';
-  else if (h >= 12 && h < 14) greeting = '中午好';
-  else if (h >= 14 && h < 18) greeting = '下午好';
-  document.getElementById('greeting').textContent = greeting;
-}
-
-// === 日历 ===
-function updateCalendar() {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  const weekday = now.toLocaleDateString('zh-CN', {weekday: 'short'});
   const lunar = getLunarInfo(now);
-
-  document.getElementById('calendar').innerHTML =
-    `<span class="cal-date">${month}/${day}</span>` +
-    `<span class="cal-weekday">${weekday}</span>` +
-    `<span class="cal-lunar">${lunar}</span>`;
+  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'});
+  document.getElementById('date').textContent = lunar ? `${dateStr} ${lunar}` : dateStr;
 }
 
 function getLunarInfo(date) {
@@ -698,9 +679,7 @@ function removeWallpaper() {
 initTheme();
 loadSearchEngine();
 updateClock();
-updateCalendar();
 setInterval(updateClock, 10000);
-setInterval(updateCalendar, 60000);
 setupSearch();
 loadData();
 initWeather();

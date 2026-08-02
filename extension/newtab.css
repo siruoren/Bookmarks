@@ -15,7 +15,6 @@
   --border-active: rgba(123,138,214,0.4);
   --shadow: 0 4px 20px rgba(0,0,0,0.3);
   --weather-bg: rgba(255,255,255,0.06);
-  --calendar-bg: rgba(255,255,255,0.06);
   --bm-icon-bg: rgba(123,138,214,0.12);
 }
 
@@ -34,7 +33,6 @@
   --border-active: rgba(91,106,191,0.4);
   --shadow: 0 4px 20px rgba(0,0,0,0.08);
   --weather-bg: rgba(0,0,0,0.04);
-  --calendar-bg: rgba(0,0,0,0.04);
   --bm-icon-bg: rgba(91,106,191,0.08);
 }
 
@@ -83,44 +81,6 @@ body.has-wallpaper > * {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-/* === 日历组件 === */
-.calendar-widget {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 12px;
-  background: var(--calendar-bg);
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.calendar-widget .cal-date {
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.calendar-widget .cal-weekday {
-  color: var(--text2);
-  font-size: 12px;
-}
-
-.calendar-widget .cal-lunar {
-  color: var(--primary);
-  font-size: 12px;
-}
-
-[data-theme="light"] .calendar-widget {
-  background: rgba(91,106,191,0.08);
-}
-
-[data-theme="light"] .calendar-widget .cal-date {
-  color: #2d3748;
-}
-
-[data-theme="light"] .calendar-widget .cal-weekday {
-  color: #4a5568;
 }
 
 /* === 天气组件 === */
@@ -232,7 +192,7 @@ body.has-wallpaper > * {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 24px 0;
+  padding: 68px 24px 0;
   overflow-y: auto;
   scroll-behavior: smooth;
 }
@@ -240,28 +200,23 @@ body.has-wallpaper > * {
 .container::-webkit-scrollbar { width: 4px; }
 .container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* === 顶部时钟 === */
-.top-section {
-  text-align: center;
-  padding-top: 8vh;
-  margin-bottom: 28px;
-  flex-shrink: 0;
-  transform: translateY(0);
-  opacity: 1;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.3s ease;
-  will-change: transform, opacity;
-  contain: layout style;
+/* === 顶栏时钟和日期 === */
+.topbar-clock {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.5px;
 }
 
-/* 搜索模式：用 transform 折叠顶部（GPU 合成，不触发布局） */
-.container.searching .top-section {
-  transform: translateY(-200px);
-  opacity: 0;
-  pointer-events: none;
-  margin-bottom: -200px;
+.topbar-date {
+  font-size: 12px;
+  color: var(--text2);
 }
 
+[data-theme="light"] .topbar-clock { color: #2d3748; }
+[data-theme="light"] .topbar-date { color: #4a5568; }
+
+/* 搜索模式：缩小搜索框下方间距 */
 .container.searching .search-section {
   margin-bottom: 16px;
 }
@@ -270,41 +225,11 @@ body.has-wallpaper > * {
   transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.clock {
-  font-size: 72px;
-  font-weight: 200;
-  letter-spacing: 2px;
-  line-height: 1;
-  color: #fff;
-  text-shadow: 0 2px 20px rgba(123,138,214,0.2), 0 2px 8px rgba(0,0,0,0.5);
-}
-
-[data-theme="light"] .clock { color: #1a1a2e; text-shadow: 0 2px 12px rgba(91,106,191,0.15); }
-
-.date {
-  font-size: 16px;
-  color: var(--text2);
-  margin-top: 8px;
-  letter-spacing: 1px;
-}
-
-[data-theme="light"] .date {
-  color: #4a5568;
-  font-weight: 500;
-}
-
-.greeting {
-  font-size: 20px;
-  color: var(--text);
-  margin-top: 12px;
-  font-weight: 300;
-}
-
 /* === 搜索框 === */
 .search-section {
   width: 100%;
   max-width: 600px;
-  margin-bottom: 32px;
+  margin: 6vh auto 32px;
   flex-shrink: 0;
 }
 
@@ -761,8 +686,6 @@ body.has-wallpaper > * {
 
 /* === 响应式 === */
 @media (max-width: 768px) {
-  .top-section { padding-top: 4vh; }
-  .clock { font-size: 48px; }
   .category-grid { gap: 4px 3px; }
   .cat-card { padding: 4px 8px; font-size: 12px; }
   .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
@@ -771,9 +694,8 @@ body.has-wallpaper > * {
 }
 
 @media (max-width: 480px) {
-  .clock { font-size: 40px; }
   .bookmark-grid { grid-template-columns: 1fr; }
   .category-grid { gap: 3px 2px; }
   .cat-card { padding: 3px 6px; font-size: 11px; }
-  .calendar-widget .cal-lunar { display: none; }
+  .topbar-date { display: none; }
 }
