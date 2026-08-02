@@ -234,6 +234,7 @@ body.has-wallpaper > * {
   align-items: center;
   padding: 48px 24px 0;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 .container::-webkit-scrollbar { width: 4px; }
@@ -245,6 +246,28 @@ body.has-wallpaper > * {
   padding-top: 8vh;
   margin-bottom: 28px;
   flex-shrink: 0;
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s ease;
+  will-change: transform, opacity;
+  contain: layout style;
+}
+
+/* 搜索模式：用 transform 折叠顶部（GPU 合成，不触发布局） */
+.container.searching .top-section {
+  transform: translateY(-200px);
+  opacity: 0;
+  pointer-events: none;
+  margin-bottom: -200px;
+}
+
+.container.searching .search-section {
+  margin-bottom: 16px;
+}
+
+.search-section {
+  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .clock {
@@ -470,6 +493,8 @@ body.has-wallpaper > * {
   max-width: 1200px;
   flex: 1;
   padding-bottom: 40px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
 }
 
 /* === 目录列表（紧凑文字条目 + 毛玻璃） === */
@@ -529,6 +554,7 @@ body.has-wallpaper > * {
 .bookmark-panel {
   margin-bottom: 28px;
   animation: slideDown 0.25s ease;
+  will-change: transform, opacity;
 }
 
 @keyframes slideDown {
@@ -584,9 +610,10 @@ body.has-wallpaper > * {
   cursor: pointer;
   text-decoration: none;
   color: #fff;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  contain: layout style;
 }
 
 [data-theme="light"] .bookmark-item {

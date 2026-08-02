@@ -1,5 +1,6 @@
 // 全局状态
 let allCategories = [];
+let _validCategories = null;  // 缓存过滤后的有效目录
 let activeCat = null;
 let isSearchMode = false;
 let isShakeMode = false;  // 最近使用长按晃动模式
@@ -172,30 +173,31 @@ function bmIconHtml(url, title) {
   } catch { return '<div class="bm-icon">?</div>'; }
 }
 
+// Favicon 懒加载（IntersectionObserver）
+let _favObserver = null;
+function getFavObserver() {
+  if (_favObserver) return _favObserver;
+  _favObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      _favObserver.unobserve(el);
+      const fav = el.dataset.fav;
+      if (!fav) return;
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; const i = document.createElement('img'); i.src = fav; el.appendChild(i); };
+      img.onerror = () => {};
+      img.src = fav;
+    });
+  }, { rootMargin: '200px' });
+  return _favObserver;
+}
+
 function loadFavicons() {
   const icons = document.querySelectorAll('.bm-icon[data-fav]');
   if (icons.length === 0) return;
-  const favCache = new Map(); // 去重：同一URL只请求一次
-  icons.forEach(el => {
-    const fav = el.dataset.fav;
-    if (favCache.has(fav)) {
-      const cached = favCache.get(fav);
-      if (cached === true) replaceIcon(el, fav);
-      return;
-    }
-    favCache.set(fav, false);
-    const img = new Image();
-    img.onload = () => { favCache.set(fav, true); replaceIcon(el, fav); };
-    img.onerror = () => {};
-    img.src = fav;
-  });
-}
-
-function replaceIcon(el, src) {
-  el.innerHTML = '';
-  const i = document.createElement('img');
-  i.src = src;
-  el.appendChild(i);
+  const observer = getFavObserver();
+  icons.forEach(el => observer.observe(el));
 }
 
 // === 数据加载 ===
@@ -310,8 +312,16 @@ function getCategories() {
 }
 
 // === 渲染 ===
+function getValidCategories() {
+  if (!_validCategories) {
+    _validCategories = getCategories().filter(c => c.items.length > 0);
+  }
+  return _validCategories;
+}
+
 function renderData(data) {
   allCategories = data.categories || [];
+  _validCategories = null;  // 数据变化，清空缓存
   const total = data.total || 0;
   const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
   if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | ${updateTime}`;
@@ -321,8 +331,7 @@ function renderData(data) {
 
 function renderMainView() {
   const content = document.getElementById('content');
-  const categories = getCategories();
-  const validCategories = categories.filter(c => c.items.length > 0);
+  const validCategories = getValidCategories();
 
   let html = '';
   html += '<div id="topVisitedSlot"></div>';
@@ -346,13 +355,15 @@ function renderMainView() {
   bindContentEvents();
   loadFavicons();
 
-  // 异步填充最近使用
-  getRecentVisited().then(items => {
-    const slot = document.getElementById('topVisitedSlot');
-    if (slot && items.length > 0) {
-      slot.innerHTML = renderTopVisited(items);
-      loadFavicons();
-    }
+  // 异步填充最近使用（requestAnimationFrame 避免与主渲染争抢）
+  requestAnimationFrame(() => {
+    getRecentVisited().then(items => {
+      const slot = document.getElementById('topVisitedSlot');
+      if (slot && items.length > 0) {
+        slot.innerHTML = renderTopVisited(items);
+        loadFavicons();
+      }
+    });
   });
 }
 
@@ -384,6 +395,52 @@ function renderBookmarkPanel(categoryName, validCategories) {
   });
   html += '</div></div>';
   return html;
+}
+
+// 统一管理折叠状态：输入框聚焦 / 有内容 / 目录展开 任一为 true 则折叠
+function updateFoldState() {
+  const input = document.getElementById('searchInput');
+  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
+  document.querySelector('.container').classList.toggle('searching', shouldFold);
+}
+
+// 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
+function toggleCategory(catName) {
+  activeCat = (activeCat === catName) ? null : catName;
+  isSearchMode = false;
+  updateFoldState();
+
+  const content = document.getElementById('content');
+
+  // 更新卡片高亮状态
+  content.querySelectorAll('.cat-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.cat === activeCat);
+  });
+
+  // 移除旧面板
+  const oldPanel = content.querySelector('.bookmark-panel');
+  if (oldPanel) oldPanel.remove();
+
+  // 添加新面板
+  if (activeCat) {
+    const validCategories = getValidCategories();
+    const panelHtml = renderBookmarkPanel(activeCat, validCategories);
+    if (panelHtml) {
+      const grid = content.querySelector('.category-grid');
+      grid.insertAdjacentHTML('afterend', panelHtml);
+      loadFavicons();
+    }
+  }
+}
+
+// 关闭书签面板
+function closeBookmarkPanel() {
+  activeCat = null;
+  updateFoldState();
+  const content = document.getElementById('content');
+  content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
+  const panel = content.querySelector('.bookmark-panel');
+  if (panel) panel.remove();
 }
 
 // === 交互 ===
@@ -430,16 +487,13 @@ function bindContentEvents() {
     // 目录卡片点击
     const card = e.target.closest('.cat-card[data-cat]');
     if (card) {
-      activeCat = (activeCat === card.dataset.cat) ? null : card.dataset.cat;
-      isSearchMode = false;
-      renderMainView();
+      toggleCategory(card.dataset.cat);
       return;
     }
 
     const closeBtn = e.target.closest('[data-action="close-panel"]');
     if (closeBtn) {
-      activeCat = null;
-      renderMainView();
+      closeBookmarkPanel();
       return;
     }
   });
@@ -492,15 +546,26 @@ function setupSearch() {
   const input = document.getElementById('searchInput');
   let timer = null;
 
+  input.addEventListener('focus', updateFoldState);
+
+  input.addEventListener('blur', () => {
+    // 延迟检查，避免点击目录时 blur 先触发导致闪烁
+    setTimeout(updateFoldState, 50);
+  });
+
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
-    if (!v) { isSearchMode = false; renderMainView(); return; }
+    if (!v) {
+      isSearchMode = false;
+      renderMainView();
+      updateFoldState();
+      return;
+    }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
   });
 
-  // 回车不再自动跳搜索引擎，需明确点击搜索按钮或搜索提示条
-  // 仅在输入网址时回车直接跳转
+  // 回车仅在输入网址时直接跳转
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const v = input.value.trim();
@@ -640,5 +705,3 @@ setupSearch();
 loadData();
 initWeather();
 loadBingWallpaper();
-
-setTimeout(() => document.getElementById('searchInput').focus(), 100);
