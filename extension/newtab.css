@@ -20,9 +20,9 @@
 
 /* === 亮色主题 === */
 [data-theme="light"] {
-  --bg: #f0f2f5;
-  --bg2: #e8ecf1;
-  --bg3: #dde1e8;
+  --bg: #ffffff;
+  --bg2: #f8f9fa;
+  --bg3: #f0f1f3;
   --card: rgba(255,255,255,0.95);
   --card-hover: rgba(255,255,255,1);
   --text: #1a2332;
@@ -44,6 +44,11 @@ body {
   transition: background 0.4s, color 0.4s;
 }
 
+/* 亮色主题：纯色背景，去除渐变模糊感 */
+[data-theme="light"] body {
+  background: #ffffff;
+}
+
 /* 壁纸模式：加暗色遮罩保证文字可读 */
 body.has-wallpaper::before {
   content: '';
@@ -59,7 +64,7 @@ body.has-wallpaper > * {
 }
 
 [data-theme="light"] body.has-wallpaper::before {
-  background: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.1);
 }
 
 /* === 顶栏 === */
@@ -143,6 +148,11 @@ body.has-wallpaper > * {
 }
 
 .weather-city-input.show { display: block; }
+
+[data-theme="light"] .weather-city-input {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 /* === 主题切换 === */
 .theme-toggle {
@@ -703,6 +713,12 @@ body.has-wallpaper > * {
   backdrop-filter: blur(10px);
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
+
+[data-theme="light"] .toast {
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 /* === 响应式 === */
 @media (max-width: 768px) {
