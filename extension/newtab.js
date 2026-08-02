@@ -584,18 +584,19 @@ function openSearch(query) {
 
 function setupSearch() {
   const input = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('searchClear');
   let timer = null;
 
   input.addEventListener('focus', updateFoldState);
 
   input.addEventListener('blur', () => {
-    // 延迟检查，避免点击目录时 blur 先触发导致闪烁
     setTimeout(updateFoldState, 50);
   });
 
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
+    clearBtn.classList.toggle('show', input.value.length > 0);
     if (!v) {
       isSearchMode = false;
       renderMainView();
@@ -605,7 +606,6 @@ function setupSearch() {
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
   });
 
-  // 回车仅在输入网址时直接跳转
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const v = input.value.trim();
@@ -615,7 +615,16 @@ function setupSearch() {
     }
   });
 
-  // 右侧搜索按钮 → 搜索引擎
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.classList.remove('show');
+    isSearchMode = false;
+    activeCat = null;
+    renderMainView();
+    updateFoldState();
+    input.focus();
+  });
+
   document.getElementById('searchGo').addEventListener('click', () => {
     openSearch(input.value);
   });
