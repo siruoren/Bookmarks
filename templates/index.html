@@ -403,7 +403,7 @@ body.has-wallpaper > * {
   width: 100%;
   max-width: 1200px;
   flex: 1;
-  padding-bottom: 40px;
+  padding-bottom: 48px;
   content-visibility: auto;
   contain-intrinsic-size: auto 600px;
 }
@@ -644,13 +644,20 @@ body.has-wallpaper > * {
 .loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
-/* 更新信息 */
+/* 更新信息 - 固定底部居中 */
 .update-info {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   font-size: 11px;
   color: var(--text2);
-  opacity: 0.5;
+  opacity: 0.6;
   text-align: center;
-  padding: 8px 0 20px;
+  padding: 8px 0 12px;
+  z-index: 50;
+  pointer-events: none;
+  background: linear-gradient(transparent, var(--bg));
 }
 
 /* Toast */
