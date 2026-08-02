@@ -22,6 +22,7 @@ function updateClock() {
 }
 
 function getLunarInfo(date) {
+  const lunarMonthNames = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
   const lunarDays = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
     '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
     '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
@@ -30,13 +31,71 @@ function getLunarInfo(date) {
     '立冬','小雪','大雪','冬至'];
 
   const y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
+
+  // 节气检查
   const termIdx = m * 2 + (d > 15 ? 1 : 0);
   if (termIdx < terms.length) {
     const termDates = [6,20,4,19,6,21,5,20,6,21,6,22,7,23,7,23,8,23,8,23,7,22,7,22];
     if (Math.abs(d - termDates[termIdx]) <= 1) return terms[termIdx];
   }
-  const dayOfYear = Math.floor((date - new Date(y, 0, 0)) / 86400000);
-  return lunarDays[(dayOfYear + 15) % 30] || '';
+
+  // 各年春节公历日期和闰月序号（0=无闰月）
+  const SPRINGS = {
+    2024: { m: 2, d: 10, leap: 0 },
+    2025: { m: 1, d: 29, leap: 6 },
+    2026: { m: 2, d: 17, leap: 0 },
+    2027: { m: 2, d: 6,  leap: 0 },
+    2028: { m: 1, d: 26, leap: 0 },
+    2029: { m: 2, d: 13, leap: 0 },
+    2030: { m: 2, d: 3,  leap: 0 },
+  };
+
+  let springInfo = SPRINGS[y];
+  let springDate = springInfo ? new Date(y, springInfo.m - 1, springInfo.d) : null;
+  let diffDays = springDate ? Math.floor((date - springDate) / 86400000) : -1;
+
+  // 春节前属于上一农历年
+  if (diffDays < 0) {
+    const prevInfo = SPRINGS[y - 1];
+    if (prevInfo) {
+      springInfo = prevInfo;
+      springDate = new Date(y - 1, prevInfo.m - 1, prevInfo.d);
+      diffDays = Math.floor((date - springDate) / 86400000);
+    } else {
+      // 无数据年份 fallback
+      const dayOfYear = Math.floor((date - new Date(y, 0, 0)) / 86400000);
+      return lunarDays[(dayOfYear + 15) % 30] || '';
+    }
+  }
+
+  // 按大小月交替推算（30,29交替，简化但近似合理）
+  const leapMonth = springInfo.leap;
+  const totalMonths = leapMonth > 0 ? 13 : 12;
+  let remaining = diffDays;
+  let monthIdx = 0;
+
+  for (let i = 0; i < totalMonths; i++) {
+    const days = (i % 2 === 0) ? 30 : 29;
+    if (remaining < days) {
+      monthIdx = i;
+      break;
+    }
+    remaining -= days;
+    if (i === totalMonths - 1) { monthIdx = i; }
+  }
+
+  // 月份名称（含闰月处理）
+  let monthName;
+  if (leapMonth > 0 && monthIdx === leapMonth) {
+    monthName = '闰' + lunarMonthNames[leapMonth - 1] + '月';
+  } else if (leapMonth > 0 && monthIdx > leapMonth) {
+    monthName = lunarMonthNames[monthIdx - 1] + '月';
+  } else {
+    monthName = lunarMonthNames[Math.min(monthIdx, 11)] + '月';
+  }
+
+  const dayName = lunarDays[remaining] || '';
+  return monthName + dayName;
 }
 
 // === 主题 ===

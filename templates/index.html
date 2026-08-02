@@ -1,269 +1,734 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bookmarks Nav</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --sidebar-w: 240px;
-  --primary: #5b6abf;
-  --primary-light: #eef0ff;
-  --primary-dark: #4a57a3;
-  --bg: #f5f6fa;
-  --card: #fff;
-  --text: #2c3e50;
-  --text2: #8795a1;
-  --border: #e8ecf1;
-  --shadow: 0 2px 8px rgba(91,106,191,.08);
-  --radius: 10px;
-}
 
-[data-theme="dark"] {
-  --primary: #7b8ad6;
-  --primary-light: #2a2a4a;
-  --primary-dark: #5b6abf;
+/* === 默认变量（暗色） === */
+:root {
   --bg: #1a1a2e;
-  --card: #252540;
+  --bg2: #16213e;
+  --bg3: #0f3460;
+  --card: rgba(255,255,255,0.06);
+  --card-hover: rgba(255,255,255,0.1);
   --text: #e0e0e0;
   --text2: #a0a0b0;
-  --border: #3a3a50;
-  --shadow: 0 2px 8px rgba(0,0,0,.3);
+  --primary: #7b8ad6;
+  --primary-dark: #5b6abf;
+  --border: rgba(255,255,255,0.08);
+  --border-active: rgba(123,138,214,0.4);
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+  --weather-bg: rgba(255,255,255,0.06);
+  --bm-icon-bg: rgba(123,138,214,0.12);
 }
-html, body { height: 100%; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+
+/* === 亮色主题 === */
+[data-theme="light"] {
+  --bg: #f0f2f5;
+  --bg2: #e8ecf1;
+  --bg3: #dde1e8;
+  --card: rgba(255,255,255,0.85);
+  --card-hover: rgba(255,255,255,0.95);
+  --text: #2c3e50;
+  --text2: #8795a1;
+  --primary: #5b6abf;
+  --primary-dark: #4a57a3;
+  --border: rgba(0,0,0,0.08);
+  --border-active: rgba(91,106,191,0.4);
+  --shadow: 0 4px 20px rgba(0,0,0,0.08);
+  --weather-bg: rgba(0,0,0,0.04);
+  --bm-icon-bg: rgba(91,106,191,0.08);
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 50%, var(--bg3) 100%);
+  color: var(--text);
+  transition: background 0.4s, color 0.4s;
+}
+
+/* 壁纸模式：加暗色遮罩保证文字可读 */
+body.has-wallpaper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 0;
+}
+
+body.has-wallpaper > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="light"] body.has-wallpaper::before {
+  background: rgba(255,255,255,0.35);
+}
 
 /* === 顶栏 === */
-.header { background: linear-gradient(135deg, #5b6abf 0%, #7c5cbf 100%); padding: 14px 24px 12px; display: grid; grid-template-columns: 1fr 4fr 1fr; align-items: center; position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 12px rgba(91,106,191,.2); gap: 8px; }
-.header .logo-wrap { cursor: pointer; display: flex; align-items: center; gap: 8px; }
-.header .logo-icon { display: none; font-size: 24px; }
-.header .logo { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: .5px; white-space: nowrap; }
-.header .stats { color: rgba(255,255,255,.6); font-size: 11px; white-space: nowrap; margin-top: 2px; }
-.search-box { justify-self: center; width: 100%; position: relative; }
-.search-box input { width: 100%; padding: 14px 50px 14px 20px; border: none; border-radius: 24px; font-size: 16px; outline: none; background: rgba(255,255,255,.92); transition: all .2s; }
-.search-box input:focus { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.3); }
-.search-box .clear-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; font-size: 16px; display: none; line-height: 1; }
-.search-box .clear-btn:hover { color: #333; }
-.header .refresh-btn { background: rgba(255,255,255,.18); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap; transition: background .2s; justify-self: end; }
-.header .refresh-btn:hover { background: rgba(255,255,255,.3); }
-.search-icon-btn { display: none; background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 8px; }
-.header .right-col { display: flex; align-items: center; gap: 12px; justify-self: end; }
-.theme-toggle { background: rgba(255,255,255,.18); color: #fff; border: none; padding: 0; border-radius: 50px; cursor: pointer; font-size: 18px; transition: background .2s; width: 26px; height: 50px; position: relative; overflow: hidden; }
-.theme-toggle:hover { background: rgba(255,255,255,.3); }
-.theme-switch { width: 22px; height: 22px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,.2); z-index: 1; }
-[data-theme="dark"] .theme-switch { transform: translateY(24px); background: #1a1a2e; }
-.theme-toggle::before { content: "☀️"; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 1; transition: opacity 0.3s; z-index: 2; }
-.theme-toggle::after { content: "🌙"; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 14px; opacity: 0.3; transition: opacity 0.3s; z-index: 2; }
-[data-theme="dark"] .theme-toggle::before { opacity: 0.3; }
-[data-theme="dark"] .theme-toggle::after { opacity: 1; }
-
-/* 日历 */
-.calendar { color: #fff; font-size: 13px; text-align: center; line-height: 1.2; white-space: nowrap; }
-.calendar .weekday { font-size: 11px; opacity: 0.85; }
-.calendar .date { font-size: 15px; font-weight: 600; white-space: nowrap; }
-
-/* 天气 */
-.weather { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; font-size: 13px; position: relative; }
-.weather-icon { font-size: 20px; cursor: pointer; }
-.weather-temp { font-weight: 600; font-size: 14px; }
-.weather-city-input { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: 100px; padding: 4px 8px; border: none; border-radius: 4px; font-size: 12px; outline: none; z-index: 300; margin-top: 4px; }
-.weather-city-input.show { display: block; }
-
-/* === 主体 === */
-.main { display: flex; flex: 1; overflow: hidden; }
-
-/* === 左侧栏 === */
-.sidebar { width: var(--sidebar-w); background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; transition: width 0.3s ease; }
-.sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 2px; }
-.sidebar.collapsed { width: 0; border-right: none; }
-.sidebar-header { padding: 16px 18px 10px; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.sidebar-header .collapse-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: background .2s; }
-.sidebar-header .collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
-.sidebar-menu { flex: 1; padding: 6px 0; }
-.sidebar-expand-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; border: none; width: 24px; height: 48px; cursor: pointer; border-radius: 0 8px 8px 0; display: none; align-items: center; justify-content: center; font-size: 14px; z-index: 100; box-shadow: 2px 0 8px rgba(0,0,0,.2); transition: left 0.3s ease; }
-.sidebar-expand-btn:hover { background: var(--primary-dark); }
-.sidebar-expand-btn.visible { display: flex; }
-.menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-radius: 8px; transition: background .2s; user-select: none; }
-.menu-item:hover { background: var(--primary-light); }
-.menu-item.active { background: var(--primary); color: #fff; }
-.menu-item .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-.menu-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-item .cnt { margin-left: auto; font-size: 11px; color: var(--text2); background: var(--bg); padding: 1px 7px; border-radius: 10px; flex-shrink: 0; }
-
-/* === 右侧内容 === */
-.content { flex: 1; overflow-y: auto; padding: 20px 28px 40px; }
-.content::-webkit-scrollbar { width: 6px; }
-.content::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 3px; }
-
-/* 最近常用 */
-.recent-section { margin-bottom: 24px; }
-.recent-section h2 { font-size: 14px; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; }
-.recent-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.recent-item { background: var(--card); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; transition: all .2s; box-shadow: var(--shadow); max-width: 240px; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); position: relative; }
-.recent-item .recent-content { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-.recent-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(91,106,191,.15); color: var(--primary); }
-.recent-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.recent-item .delete-btn { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #e74c3c; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
-.recent-item .pin-btn { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: #f39c12; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid var(--card); }
-.recent-item.pinned .pin-btn { background: #e67e22; }
-.recent-item.show-delete .delete-btn { display: flex; }
-.recent-item.show-delete .pin-btn { display: flex; }
-.recent-item.show-delete .recent-content { animation: shake 0.5s ease-in-out infinite; }
-.recent-item.dragging { opacity: 0.5; }
-.recent-item.drag-over { border: 2px dashed var(--primary); }
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px) rotate(-1deg); }
-  75% { transform: translateX(3px) rotate(1deg); }
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: transparent;
+  z-index: 100;
 }
 
-/* 分类视图 - 首页概览 */
-.overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.overview-card { background: var(--card); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .2s; border: 1px solid var(--border); box-shadow: var(--shadow); user-select: none; }
-.overview-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(91,106,191,.15); }
-.overview-card .oc-icon { font-size: 26px; }
-.overview-card .oc-name { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; }
-.overview-card .oc-count { font-size: 12px; color: var(--text2); }
+.topbar-left, .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
-/* 分类详情 - 书签列表 */
-.category-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
-.category-title .back-btn { font-size: 14px; color: var(--primary); cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 4px; }
-.category-title .back-btn:hover { text-decoration: underline; }
-.category-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+/* === 天气组件 === */
+.weather-widget {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--weather-bg);
+  border-radius: 8px;
+  font-size: 13px;
+  position: relative;
+  cursor: default;
+}
 
-/* 子目录区域 */
-.subdirectory-section { margin-top: 32px; }
-.subdirectory-section h3 { font-size: 14px; color: var(--primary); margin-bottom: 12px; font-weight: 600; }
-.subdirectory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-.subdirectory-card { background: var(--card); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: all .2s; border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.subdirectory-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(91,106,191,.15); border-color: var(--primary); }
-.subdirectory-card .subdir-icon { font-size: 24px; }
-.subdirectory-card .subdir-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.subdirectory-card .subdir-count { font-size: 12px; color: var(--text2); }
+.weather-icon {
+  font-size: 18px;
+  cursor: pointer;
+}
 
-.bookmark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; max-width: 1400px; margin: 0 auto; }
-.bookmark-item { background: var(--card); border-radius: 8px; padding: 12px 14px; transition: all .15s; cursor: pointer; text-decoration: none; color: var(--text); display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); min-height: 56px; }
-.bookmark-item:hover { box-shadow: 0 4px 12px rgba(91,106,191,.12); transform: translateY(-1px); }
-.bookmark-item .bm-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--primary); flex-shrink: 0; font-weight: 700; overflow: hidden; }
+.weather-temp {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.weather-city {
+  color: var(--text2);
+  font-size: 12px;
+}
+
+[data-theme="light"] .weather-widget {
+  background: rgba(91,106,191,0.08);
+}
+
+[data-theme="light"] .weather-temp {
+  color: #2d3748;
+}
+
+[data-theme="light"] .weather-city {
+  color: #4a5568;
+}
+
+.weather-city-input {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  background: var(--card);
+  color: var(--text);
+  z-index: 300;
+  margin-top: 4px;
+  backdrop-filter: blur(10px);
+}
+
+.weather-city-input.show { display: block; }
+
+/* === 主题切换 === */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--weather-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 16px;
+}
+
+.theme-toggle:hover { background: var(--card-hover); }
+
+[data-theme="light"] .theme-toggle {
+  background: rgba(91,106,191,0.08);
+  color: #4a5568;
+}
+
+/* === 主容器 === */
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 68px 24px 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.container::-webkit-scrollbar { width: 4px; }
+.container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* === 顶栏时钟和日期 === */
+.topbar-clock {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.topbar-date {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+[data-theme="light"] .topbar-clock { color: #2d3748; }
+[data-theme="light"] .topbar-date { color: #4a5568; }
+
+/* 搜索模式：缩小搜索框下方间距 */
+.container.searching .search-section {
+  margin-bottom: 16px;
+}
+
+.search-section {
+  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === 搜索框 === */
+.search-section {
+  width: 100%;
+  max-width: 600px;
+  margin: 6vh auto 32px;
+  flex-shrink: 0;
+}
+
+.search-box {
+  position: relative;
+  width: 100%;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text2);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 14px 48px 14px 46px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  font-size: 16px;
+  background: var(--card);
+  color: var(--text);
+  outline: none;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+}
+
+.search-go {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.search-go:hover { background: var(--primary-dark); }
+
+.search-box input:focus {
+  background: var(--card-hover);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(91,106,191,0.15);
+}
+
+.search-box input::placeholder { color: var(--text2); }
+
+/* === 最近使用 === */
+.top-visited {
+  margin-bottom: 20px;
+}
+
+.top-visited-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+.top-visited-grid {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 0 4px 0;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.top-visited-grid::-webkit-scrollbar { height: 3px; }
+.top-visited-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.top-visited-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  text-decoration: none;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+[data-theme="light"] .top-visited-item {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.06);
+  color: var(--text);
+}
+
+.top-visited-item:hover {
+  background: rgba(0,0,0,0.4);
+  border-color: var(--border-active);
+}
+
+[data-theme="light"] .top-visited-item:hover {
+  background: rgba(255,255,255,0.75);
+}
+
+.top-visited-item .bm-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bm-icon-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--primary);
+  flex-shrink: 0;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.top-visited-item .bm-icon img { width: 16px; height: 16px; border-radius: 2px; }
+
+.top-visited-info { display: flex; align-items: center; gap: 6px; }
+
+.top-visited-name {
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+[data-theme="light"] .top-visited-name { text-shadow: none; }
+
+/* 晃动模式 */
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-3deg); }
+  40% { transform: rotate(3deg); }
+  60% { transform: rotate(-2deg); }
+  80% { transform: rotate(2deg); }
+}
+
+.top-visited-item.shake {
+  animation: shake 1.2s ease infinite;
+}
+
+.remove-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  border: 2px solid #fff;
+  line-height: 1;
+  font-weight: 600;
+}
+
+[data-theme="light"] .remove-badge { border-color: #f0f2f5; }
+
+/* === 内容区 === */
+.content {
+  width: 100%;
+  max-width: 1200px;
+  flex: 1;
+  padding-bottom: 40px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+/* === 目录列表（紧凑文字条目 + 毛玻璃） === */
+.category-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  margin-bottom: 20px;
+}
+
+.cat-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.12);
+  transition: all 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .cat-card {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.08);
+}
+
+.cat-card:hover {
+  background: rgba(0,0,0,0.5);
+  border-color: var(--border-active);
+}
+
+[data-theme="light"] .cat-card:hover {
+  background: rgba(255,255,255,0.75);
+}
+
+.cat-card.active {
+  background: rgba(123,138,214,0.35);
+  border-color: var(--border-active);
+}
+
+[data-theme="light"] .cat-card.active {
+  background: rgba(91,106,191,0.18);
+}
+
+.cat-card .cat-icon { font-size: 14px; }
+.cat-card .cat-name { font-size: 13px; font-weight: 600; line-height: 1.4; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+[data-theme="light"] .cat-card .cat-name { color: #1a1a2e; text-shadow: none; }
+.cat-card .cat-count { font-size: 11px; color: rgba(255,255,255,0.7); }
+[data-theme="light"] .cat-card .cat-count { color: var(--text2); }
+
+/* === 书签展开区（点击目录后显示在目录下方） === */
+.bookmark-panel {
+  margin-bottom: 28px;
+  animation: slideDown 0.25s ease;
+  will-change: transform, opacity;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bookmark-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 0 4px;
+}
+
+.bookmark-panel-header .panel-icon { font-size: 20px; }
+.bookmark-panel-header .panel-title { font-size: 16px; font-weight: 600; }
+.bookmark-panel-header .panel-path { font-size: 12px; color: var(--text2); }
+.bookmark-panel-header .panel-count { font-size: 12px; color: var(--text2); }
+.bookmark-panel-header .panel-close {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.bookmark-panel-header .panel-close:hover { background: var(--card-hover); color: var(--text); }
+
+/* 书签网格 */
+.bookmark-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  text-decoration: none;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  contain: layout style;
+}
+
+[data-theme="light"] .bookmark-item {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.06);
+  color: var(--text);
+}
+
+.bookmark-item:hover {
+  background: rgba(0,0,0,0.5);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="light"] .bookmark-item:hover {
+  background: rgba(255,255,255,0.75);
+  border-color: var(--primary);
+}
+
+.bookmark-item .bm-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bm-icon-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--primary);
+  flex-shrink: 0;
+  font-weight: 700;
+  overflow: hidden;
+}
+
 .bookmark-item .bm-icon img { width: 20px; height: 20px; border-radius: 3px; }
-.bookmark-item .bm-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.bookmark-item .bm-title { font-size: 13.5px; font-weight: 500; line-height: 1.4; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -ms-overflow-style: none; padding-right: 4px; }
-.bookmark-item .bm-title::-webkit-scrollbar { display: none; }
-.bookmark-item:hover .bm-title { color: var(--primary); }
-.bookmark-item .bm-url { font-size: 11px; color: var(--text2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
-.empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
+.bookmark-item .bm-info { flex: 1; min-width: 0; }
+
+.bookmark-item .bm-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+[data-theme="light"] .bookmark-item .bm-title { text-shadow: none; }
+
+.bookmark-item:hover .bm-title { color: var(--primary); }
+
+.bookmark-item .bm-url {
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .bookmark-item .bm-url { color: var(--text2); }
+
+/* 搜索结果高亮 */
+.search-category {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 搜索引擎提示条 */
+.search-engine-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+[data-theme="light"] .search-engine-hint {
+  background: rgba(255,255,255,0.5);
+  border-color: rgba(0,0,0,0.06);
+  color: var(--text2);
+}
+
+.search-engine-hint:hover {
+  background: rgba(123,138,214,0.25);
+  border-color: var(--border-active);
+  color: #fff;
+}
+
+[data-theme="light"] .search-engine-hint:hover {
+  background: rgba(91,106,191,0.12);
+  color: var(--text);
+}
+
+.search-engine-hint svg { flex-shrink: 0; opacity: 0.7; }
 
 /* 分类图标颜色 */
 .ico-0 { color: #e74c3c; } .ico-1 { color: #e67e22; } .ico-2 { color: #f1c40f; } .ico-3 { color: #2ecc71; }
 .ico-4 { color: #1abc9c; } .ico-5 { color: #3498db; } .ico-6 { color: #9b59b6; } .ico-7 { color: #e91e63; }
 
-/* 移动端 */
-.sidebar-toggle { display: none; background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; padding: 4px; }
-.header .left-col { display: flex; align-items: center; gap: 8px; }
+/* 加载/空状态 */
+.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
+.empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
-/* 大屏: 侧边栏加宽, 更多列 */
-@media (min-width: 1400px) {
-  :root { --sidebar-w: 280px; }
-  .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
-  .overview-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+/* 更新信息 */
+.update-info {
+  font-size: 11px;
+  color: var(--text2);
+  opacity: 0.5;
+  text-align: center;
+  padding: 8px 0 20px;
 }
 
-/* 中屏: 侧边栏缩窄 */
-@media (max-width: 1024px) {
-  :root { --sidebar-w: 200px; }
-  .menu-item { padding: 8px 14px; font-size: 13px; }
-  .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+/* Toast */
+.toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  padding: 10px 24px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  font-size: 13px;
+  z-index: 1000;
+  transition: transform 0.3s;
+  backdrop-filter: blur(10px);
 }
+.toast.show { transform: translateX(-50%) translateY(0); }
 
-/* 小屏: 隐藏侧边栏, 汉堡菜单 */
+/* === 响应式 === */
 @media (max-width: 768px) {
-  .sidebar-toggle { display: block; }
-  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; width: 250px; z-index: 300; transition: left .25s; box-shadow: 4px 0 20px rgba(0,0,0,.1); }
-  .sidebar.open { left: 0; }
-  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 299; }
-  .sidebar-overlay.open { display: block; }
+  .category-grid { gap: 4px 3px; }
+  .cat-card { padding: 4px 8px; font-size: 12px; }
   .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-  .overview-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .header .stats { display: none; }
-  .content { padding: 16px 16px 32px; }
-  .search-box { width: min(500px, calc(100% - 160px)); }
-  
-  /* 小屏搜索和刷新按钮样式 */
-  .search-icon-btn { display: block; }
-  .search-box { display: none; position: absolute; left: 50%; transform: translateX(-50%); width: calc(100% - 120px); z-index: 250; }
-  .search-box.show { display: block; }
-  .header .refresh-btn { padding: 8px 10px; font-size: 16px; }
-  .header .refresh-btn span { display: none; }
-  .header { grid-template-columns: auto 1fr auto; }
-  .header .left-col { width: auto; }
-  
-  /* 小屏隐藏日历，简化天气显示 */
-  .calendar { display: none; }
-  .weather .weather-city { display: none; }
+  .topbar-left { gap: 8px; }
+  .weather-city { display: none; }
 }
 
-/* 超小屏: 只显示图标 */
 @media (max-width: 480px) {
-  .header .logo { display: none; }
-  .header .logo-icon { display: block; }
-  .header .stats { display: none; }
+  .bookmark-grid { grid-template-columns: 1fr; }
+  .category-grid { gap: 3px 2px; }
+  .cat-card { padding: 3px 6px; font-size: 11px; }
+  .topbar-date { display: none; }
 }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="left-col">
-    <button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
-    <div class="logo-wrap" onclick="location.reload()">
-      <span class="logo-icon">&#128208;</span>
-      <div>
-        <div class="logo">Bookmarks</div>
-        <div class="stats" id="stats"></div>
-      </div>
-    </div>
-  </div>
-  <button class="search-icon-btn" onclick="toggleSearchBox()">&#128269;</button>
-  <div class="search-box" id="searchBox">
-    <input type="text" id="searchInput" placeholder="搜索书签..." autocomplete="off">
-    <span class="clear-btn" id="clearBtn">&times;</span>
-  </div>
-  <div class="right-col">
-    <div class="calendar" id="calendar"></div>
-    <div class="weather" id="weather">
-      <span class="weather-icon" id="weatherIcon" onclick="toggleCityInput()">&#127749;</span>
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-clock" id="clock"></div>
+    <div class="topbar-date" id="date"></div>
+    <div class="weather-widget" id="weather">
+      <span class="weather-icon" id="weatherIcon">🌤️</span>
       <span class="weather-temp" id="weatherTemp">--°</span>
-      <input type="text" class="weather-city-input" id="weatherCityInput" placeholder="输入城市" onkeypress="handleCityInput(event)">
+      <span class="weather-city" id="weatherCity"></span>
+      <input type="text" class="weather-city-input" id="weatherCityInput" placeholder="输入城市">
     </div>
-    <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">
-      <div class="theme-switch"></div>
+  </div>
+  <div class="topbar-right">
+    <div class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="theme-icon" id="themeIcon">🌙</span>
     </div>
-    <button class="refresh-btn" onclick="location.reload()">&#8635; <span>刷新</span></button>
   </div>
 </div>
 
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-
-<div class="main">
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <span>目录导航</span>
-      <button class="collapse-btn" onclick="toggleSidebarCollapse()" title="收起/展开侧边栏">◀</button>
+<div class="container">
+  <div class="search-section">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+      <input type="text" id="searchInput" placeholder="搜索书签或输入网址..." autocomplete="off">
+      <button class="search-go" id="searchGo" title="搜索">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" fill="currentColor"/></svg>
+      </button>
     </div>
-    <div class="sidebar-menu" id="sidebarMenu"></div>
   </div>
-  <button class="sidebar-expand-btn" onclick="toggleSidebarCollapse()" title="展开侧边栏">▶</button>
+
   <div class="content" id="content">
     <div class="loading">加载中...</div>
   </div>
+
+  <div class="update-info" id="updateInfo"></div>
 </div>
 
-<script>// 设备ID管理
+<div class="toast" id="toast"></div>
+
+<script>
+// === 设备ID管理 ===
 function getDeviceId() {
   let deviceId = localStorage.getItem('bookmarks_device_id');
   if (!deviceId) {
@@ -272,226 +737,173 @@ function getDeviceId() {
   }
   return deviceId;
 }
+const deviceId = getDeviceId();
 
-let deviceId = getDeviceId();
-
-// 全局状态
+// === 全局状态 ===
 let allCategories = [];
-let recentData = [];
-let currentCat = null; // 当前选中的分类索引, null=全部
+let _validCategories = null;
+let activeCat = null;
 let isSearchMode = false;
-let cachedBookmarks = null; // 缓存的书签数据
-let cachedUpdateTime = 0; // 缓存的后端更新时间
+let isShakeMode = false;
 
-// 天气相关
-const getWeatherCityKey = () => `weather_city_${deviceId}`;
-let weatherCity = localStorage.getItem(getWeatherCityKey()) || '';
-let weatherData = null;
+// 分类图标
+const CAT_ICONS = ['📂','🎬','📝','💻','🎮','🎧','🔧','🏠','📚','💰','🛒','✈️','🖼️','👔','🔗','🌍','📊','🗂️','⚙️','🧰','📁','🔔','📌','🎯'];
+const catIcon = i => CAT_ICONS[i % CAT_ICONS.length];
 
-// 主题相关
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  } else {
-    // 检测系统主题偏好
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = prefersDark ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    
-    // 监听系统主题变化
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      if (!localStorage.getItem('theme')) {
-        const newTheme = e.matches ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', newTheme);
-      }
-    });
+// === 时钟 ===
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+
+  const lunar = getLunarInfo(now);
+  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'});
+  document.getElementById('date').textContent = lunar ? `${dateStr} ${lunar}` : dateStr;
+}
+
+function getLunarInfo(date) {
+  const lunarMonthNames = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+  const lunarDays = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+    '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+    '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+  const terms = ['小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满',
+    '芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降',
+    '立冬','小雪','大雪','冬至'];
+
+  const y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
+
+  // 节气检查
+  const termIdx = m * 2 + (d > 15 ? 1 : 0);
+  if (termIdx < terms.length) {
+    const termDates = [6,20,4,19,6,21,5,20,6,21,6,22,7,23,7,23,8,23,8,23,7,22,7,22];
+    if (Math.abs(d - termDates[termIdx]) <= 1) return terms[termIdx];
   }
+
+  const SPRINGS = {
+    2024: { m: 2, d: 10, leap: 0 },
+    2025: { m: 1, d: 29, leap: 6 },
+    2026: { m: 2, d: 17, leap: 0 },
+    2027: { m: 2, d: 6,  leap: 0 },
+    2028: { m: 1, d: 26, leap: 0 },
+    2029: { m: 2, d: 13, leap: 0 },
+    2030: { m: 2, d: 3,  leap: 0 },
+  };
+
+  let springInfo = SPRINGS[y];
+  let springDate = springInfo ? new Date(y, springInfo.m - 1, springInfo.d) : null;
+  let diffDays = springDate ? Math.floor((date - springDate) / 86400000) : -1;
+
+  if (diffDays < 0) {
+    const prevInfo = SPRINGS[y - 1];
+    if (prevInfo) {
+      springInfo = prevInfo;
+      springDate = new Date(y - 1, prevInfo.m - 1, prevInfo.d);
+      diffDays = Math.floor((date - springDate) / 86400000);
+    } else {
+      const dayOfYear = Math.floor((date - new Date(y, 0, 0)) / 86400000);
+      return lunarDays[(dayOfYear + 15) % 30] || '';
+    }
+  }
+
+  const leapMonth = springInfo.leap;
+  const totalMonths = leapMonth > 0 ? 13 : 12;
+  let remaining = diffDays;
+  let monthIdx = 0;
+
+  for (let i = 0; i < totalMonths; i++) {
+    const days = (i % 2 === 0) ? 30 : 29;
+    if (remaining < days) {
+      monthIdx = i;
+      break;
+    }
+    remaining -= days;
+    if (i === totalMonths - 1) { monthIdx = i; }
+  }
+
+  let monthName;
+  if (leapMonth > 0 && monthIdx === leapMonth) {
+    monthName = '闰' + lunarMonthNames[leapMonth - 1] + '月';
+  } else if (leapMonth > 0 && monthIdx > leapMonth) {
+    monthName = lunarMonthNames[monthIdx - 1] + '月';
+  } else {
+    monthName = lunarMonthNames[Math.min(monthIdx, 11)] + '月';
+  }
+
+  const dayName = lunarDays[remaining] || '';
+  return monthName + dayName;
+}
+
+// === 主题 ===
+function initTheme() {
+  const theme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeIcon(theme);
 }
 
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeIcon(next);
 }
 
-// 侧边栏折叠相关
-function initSidebarCollapse() {
-  const saved = localStorage.getItem('sidebar_collapsed');
-  // 默认收起，如果没有保存状态或保存为true
-  const collapsed = saved === null ? true : saved === 'true';
-  
-  if (collapsed) {
-    document.getElementById('sidebar').classList.add('collapsed');
-    const collapseBtn = document.querySelector('.collapse-btn');
-    const expandBtn = document.querySelector('.sidebar-expand-btn');
-    if (collapseBtn) {
-      collapseBtn.textContent = '▶';
-    }
-    if (expandBtn) {
-      expandBtn.classList.add('visible');
-    }
-  }
+function updateThemeIcon(theme) {
+  document.getElementById('themeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
 }
 
-function toggleSidebarCollapse() {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('collapsed');
-  const collapsed = sidebar.classList.contains('collapsed');
-  localStorage.setItem('sidebar_collapsed', collapsed);
-  
-  // 更新按钮图标和展开按钮显示
-  const collapseBtn = document.querySelector('.collapse-btn');
-  const expandBtn = document.querySelector('.sidebar-expand-btn');
-  if (collapseBtn) {
-    collapseBtn.textContent = collapsed ? '▶' : '◀';
-  }
-  if (expandBtn) {
-    expandBtn.classList.toggle('visible', collapsed);
-  }
-}
-
-// 从 localStorage 读取缓存
-function loadFromLocalStorage() {
-  try {
-    const cached = localStorage.getItem('bookmarks_cache');
-    if (cached) {
-      const data = JSON.parse(cached);
-      cachedBookmarks = data.bookmarks;
-      cachedUpdateTime = data.updateTime;
-      return true;
-    }
-  } catch (e) {
-    console.error("读取本地缓存失败", e);
-  }
-  return false;
-}
-
-// 保存到 localStorage
-function saveToLocalStorage() {
-  try {
-    if (cachedBookmarks) {
-      localStorage.setItem('bookmarks_cache', JSON.stringify({
-        bookmarks: cachedBookmarks,
-        updateTime: cachedUpdateTime
-      }));
-    }
-  } catch (e) {
-    console.error("保存本地缓存失败", e);
-  }
-}
-
-// 日历功能
-function updateCalendar() {
-  const now = new Date();
-  const weekdayStr = now.toLocaleDateString('zh-CN', {weekday: 'short'});
-  const dateStr = now.toLocaleDateString('zh-CN', {month: 'short', day: 'numeric'});
-  document.getElementById('calendar').innerHTML = `<div class="weekday">${weekdayStr}</div><div class="date">${dateStr}</div>`;
-}
-
-// 天气功能
+// === 天气 ===
 const weatherIcons = {
-  '晴': '☀️', '多云': '⛅', '阴': '☁️', '雨': '🌧️', 
-  '雪': '❄️', '雾': '🌫️', '沙尘': '🌪️', '雷阵雨': '⛈️'
+  '晴': '☀️', '多云': '⛅', '阴': '☁️', '雨': '🌧️',
+  '雪': '❄️', '雾': '🌫️', '雷阵雨': '⛈️', '小雨': '🌦️', '大风': '💨'
 };
 
-function getWeatherIcon(weather) {
-  for (const key in weatherIcons) {
-    if (weather.includes(key)) return weatherIcons[key];
-  }
+function getWeatherIcon(desc) {
+  for (const key in weatherIcons) if (desc.includes(key)) return weatherIcons[key];
   return '🌤️';
+}
+
+function getWeatherDesc(code) {
+  const codes = {0:'晴',1:'晴',2:'多云',3:'多云',45:'雾',48:'雾',51:'小雨',53:'小雨',55:'小雨',61:'雨',63:'雨',65:'雨',71:'雪',73:'雪',75:'雪',80:'阵雨',81:'阵雨',82:'阵雨',95:'雷阵雨',96:'雷阵雨',99:'雷阵雨'};
+  return codes[code] || '晴';
 }
 
 async function fetchWeather(city) {
   try {
-    // 使用免费的天气API (Open-Meteo，无需API key)
     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh`);
     const geoData = await geoRes.json();
-    
-    if (!geoData.results || geoData.results.length === 0) {
-      console.error("城市未找到:", city);
-      return null;
-    }
-    
+    if (!geoData.results || geoData.results.length === 0) return null;
     const {latitude, longitude, name} = geoData.results[0];
     const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
-    const weatherData = await weatherRes.json();
-    
-    return {
-      city: name,
-      temp: Math.round(weatherData.current_weather.temperature),
-      weatherCode: weatherData.current_weather.weathercode
-    };
-  } catch (e) {
-    console.error("获取天气失败:", e);
-    return null;
-  }
+    const wd = await weatherRes.json();
+    return { city: name, temp: Math.round(wd.current_weather.temperature), weatherCode: wd.current_weather.weathercode };
+  } catch (e) { console.error('获取天气失败:', e); return null; }
 }
 
 function updateWeatherDisplay(data) {
   if (!data) return;
-  
-  const weatherDesc = getWeatherDescription(data.weatherCode);
-  document.getElementById('weatherIcon').textContent = getWeatherIcon(weatherDesc);
+  const desc = getWeatherDesc(data.weatherCode);
+  document.getElementById('weatherIcon').textContent = getWeatherIcon(desc);
   document.getElementById('weatherTemp').textContent = `${data.temp}°`;
-}
-
-function getWeatherDescription(code) {
-  const weatherCodes = {
-    0: '晴', 1: '晴', 2: '多云', 3: '多云',
-    45: '雾', 48: '雾',
-    51: '小雨', 53: '小雨', 55: '小雨',
-    61: '雨', 63: '雨', 65: '雨',
-    71: '雪', 73: '雪', 75: '雪',
-    80: '阵雨', 81: '阵雨', 82: '阵雨',
-    95: '雷阵雨', 96: '雷阵雨', 99: '雷阵雨'
-  };
-  return weatherCodes[code] || '晴';
+  document.getElementById('weatherCity').textContent = data.city;
 }
 
 async function initWeather() {
-  if (weatherCity) {
-    const data = await fetchWeather(weatherCity);
-    if (data) {
-      updateWeatherDisplay(data);
-    }
-  } else {
-    // 自动定位
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const {latitude, longitude} = position.coords;
-          try {
-            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=zh`);
-            const geoData = await geoRes.json();
-            const city = geoData.results?.[0]?.name || '未知位置';
-            
-            localStorage.setItem(getWeatherCityKey(), city);
-            weatherCity = city;
-            
-            const data = await fetchWeather(city);
-            if (data) updateWeatherDisplay(data);
-          } catch (e) {
-            console.error("反向地理编码失败", e);
-          }
-        },
-        (error) => {
-          console.error("定位失败", error);
-        }
-      );
-    }
+  const city = localStorage.getItem('weatherCity') || '';
+  if (city) {
+    const data = await fetchWeather(city);
+    if (data) updateWeatherDisplay(data);
   }
 }
 
-function toggleCityInput() {
+async function toggleCityInput() {
   const input = document.getElementById('weatherCityInput');
-  
   if (input.classList.contains('show')) {
     input.classList.remove('show');
   } else {
     input.classList.add('show');
-    input.value = weatherCity;
+    input.value = localStorage.getItem('weatherCity') || '';
     input.focus();
   }
 }
@@ -500,724 +912,482 @@ function handleCityInput(event) {
   if (event.key === 'Enter') {
     const city = event.target.value.trim();
     if (city) {
-      localStorage.setItem(getWeatherCityKey(), city);
-      weatherCity = city;
+      localStorage.setItem('weatherCity', city);
       event.target.classList.remove('show');
-      
-      fetchWeather(city).then(data => {
-        if (data) updateWeatherDisplay(data);
-      });
+      fetchWeather(city).then(data => { if (data) updateWeatherDisplay(data); });
     }
   }
 }
 
-// 分类图标
-const CAT_ICONS = ['📂','🎬','📝','💻','🎮','🎧','🔧','🏠','📚','💰','🛒','✈️','🖼️','👔','🔗','🌍','📊','🗂️','⚙️','🧰','📁','🔔','📌','🎯'];
-function catIcon(i) { return CAT_ICONS[i % CAT_ICONS.length]; }
+// === 工具函数 ===
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+const escAttr = escHtml;
 
-// 书签图标：用favicon或首字母
+function cleanTitle(title) {
+  if (!title) return '';
+  let t = title;
+  t = t.replace(/\s*[-_|–—]\s*(CSDN博客|博客园|简书|知乎|Stack Overflow|GitHub|Gitee|GitLab|Jenkins|Docker|Kubernetes|官方|官网|首页|Download|Documentation|Sign In|Login).*$/gi, '');
+  t = t.replace(/\s*[-_|–—]\s*$/, '');
+  t = t.trim();
+  if (t.length > 50) t = t.substring(0, 47) + '...';
+  return t || title;
+}
+
 function bmIconHtml(url, title) {
   try {
     const u = new URL(url);
     const fav = u.origin + '/favicon.ico';
     const letter = (title || u.hostname)[0].toUpperCase();
     return `<div class="bm-icon" data-fav="${escAttr(fav)}" data-letter="${escAttr(letter)}">${letter}</div>`;
-  } catch { return `<div class="bm-icon">?</div>`; }
+  } catch { return '<div class="bm-icon">?</div>'; }
 }
 
-// 尝试加载favicon
-function loadFavicons() {
-  document.querySelectorAll('.bm-icon[data-fav]').forEach(el => {
-    const fav = el.dataset.fav;
-    const letter = el.dataset.letter;
-    const img = new Image();
-    img.onload = () => { el.innerHTML = ''; const i = document.createElement('img'); i.src = fav; el.appendChild(i); };
-    img.onerror = () => {};
-    img.src = fav;
-  });
-}
-
-// 简化书签标题
-function cleanTitle(title, url) {
-  if (!title) return url || '';
-  let t = title;
-  // 去掉常见后缀
-  t = t.replace(/\s*[-_|–—]\s*(CSDN博客|博客园|简书|知乎|SegmentFault 思否|Stack Overflow|51CTO博客|腾讯云开发者社区|腾讯云|阿里云开发者社区|豆瓣|v2ray|Nexus|JFrog|OpenWrt|OpenVAS|GitHub|Gitee|GitLab|Jenkins|Docker|Kubernetes|Zabbix|Elastic|Grafana|Kibana|Harbor|Artifactory|Flyway|Liquibase|Ansible|Nacos|Spring|Oracle|中文社区|官方|官网|首页|Download|Documentation|Sign In|Login|Insecure|Page \d+|Issue #\d+|\(.*?\))/gi, '');
-  t = t.replace(/\s*[-_|–—]\s*$/, '');
-  t = t.trim();
-  if (t.length > 60) t = t.substring(0, 57) + '...';
-  return t || title;
-}
-
-async function loadBookmarks(keyword) {
-  // 搜索时直接从后端获取，不使用缓存
-  if (keyword) {
-    const url = '/api/bookmarks?q=' + encodeURIComponent(keyword);
-    const resp = await fetch(url);
-    return await resp.json();
-  }
-  
-  try {
-    // 检查后端更新时间（2秒超时）
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    
-    const timeRes = await fetch('/api/update_time', {signal: controller.signal});
-    const timeData = await timeRes.json();
-    const backendUpdateTime = timeData.last_update || 0;
-    clearTimeout(timeout);
-    
-    // 如果有缓存且缓存时间不晚于后端更新时间，使用缓存
-    if (cachedBookmarks && cachedUpdateTime >= backendUpdateTime) {
-      return cachedBookmarks;
-    }
-    
-    // 否则从后端获取数据
-    const resp = await fetch('/api/bookmarks');
-    const data = await resp.json();
-    
-    // 更新缓存
-    cachedBookmarks = data;
-    cachedUpdateTime = backendUpdateTime;
-    saveToLocalStorage();
-    
-    return data;
-  } catch (e) {
-    console.error("后端服务不可用或超时，使用缓存数据", e);
-    // 后端不可用时，如果有缓存则使用缓存
-    if (cachedBookmarks) {
-      return cachedBookmarks;
-    }
-    // 如果连缓存都没有，返回空数据
-    return {categories: [], total: 0, last_update: 0};
-  }
-}
-
-async function loadRecent() {
-  try {
-    const res = await fetch(`/api/recent?device_id=${encodeURIComponent(deviceId)}`);
-    const data = await res.json();
-    recentData = data.items || [];
-  } catch (e) {
-    console.error("加载最近常用失败", e);
-    recentData = [];
-  }
-}
-
-async function recordVisit(title, url, category) {
-  await fetch('/api/visit', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title, url, category, device_id: deviceId})
-  });
-  loadRecent();
-}
-
-// 渲染侧边栏
-function renderSidebar(categories) {
-  const menu = document.getElementById('sidebarMenu');
-  const regularCategories = getRegularCategories();
-  
-  let html = `<div class="menu-item ${currentCat === null && !isSearchMode ? 'active' : ''}" onclick="showAll()">
-    <span class="icon">🏠</span><span class="label">全部目录</span>
-    <span class="cnt">${regularCategories.reduce((s,c) => s + c.items.length, 0)}</span>
-  </div>`;
-  
-  // 构建树结构并渲染
-  const tree = buildCategoryTree(regularCategories);
-  html += renderCategoryTree(tree, 0);
-  
-  menu.innerHTML = html;
-}
-
-// 构建目录树结构
-function buildCategoryTree(categories) {
-  const tree = {};
-  
-  categories.forEach(cat => {
-    const path = cat.category.split(' / ');
-    let current = tree;
-    
-    path.forEach((segment, index) => {
-      if (!current[segment]) {
-        current[segment] = {
-          name: segment,
-          fullPath: path.slice(0, index + 1).join(' / '),
-          children: {},
-          isLeaf: index === path.length - 1,
-          category: cat,
-          hasBookmarks: index === path.length - 1
-        };
-      }
-      
-      // 如果这是叶子节点，确保标记为有书签
-      if (index === path.length - 1) {
-        current[segment].isLeaf = true;
-        current[segment].hasBookmarks = true;
-        current[segment].category = cat;
-      }
-      
-      current = current[segment].children;
+// Favicon 懒加载
+let _favObserver = null;
+function getFavObserver() {
+  if (_favObserver) return _favObserver;
+  _favObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      _favObserver.unobserve(el);
+      const fav = el.dataset.fav;
+      if (!fav) return;
+      const img = new Image();
+      img.onload = () => { el.innerHTML = ''; const i = document.createElement('img'); i.src = fav; el.appendChild(i); };
+      img.onerror = () => {};
+      img.src = fav;
     });
-  });
-  
-  return tree;
+  }, { rootMargin: '200px' });
+  return _favObserver;
 }
 
-// 递归渲染目录树
-function renderCategoryTree(tree, level, parentPath = '') {
-  let html = '';
-  const entries = Object.entries(tree).sort((a, b) => a[0].localeCompare(b[0]));
-  
-  entries.forEach(([name, node]) => {
-    const indent = level * 16;
-    const hasChildren = Object.keys(node.children).length > 0;
-    const isActive = currentCat === node.fullPath && !isSearchMode;
-    const isExpanded = expandedNodes.has(node.fullPath);
-    
-    // 显示所有有子节点的节点，或有书签的节点
-    if (hasChildren || node.hasBookmarks) {
-      const icon = hasChildren ? (isExpanded ? '📂' : '📁') : '📄';
-      
-      html += `<div class="menu-item ${isActive ? 'active' : ''}" 
-               style="padding-left: ${10 + indent}px"
-               data-category="${escAttr(node.fullPath)}"
-               data-has-children="${hasChildren}"
-               onclick="handleCategoryClick('${escJs(node.fullPath)}', ${hasChildren})">
-        <span class="icon">${icon}</span>
-        <span class="label">${escHtml(name)}</span>
-        ${node.hasBookmarks && node.category ? `<span class="cnt">${node.category.items.length}</span>` : ''}
-      </div>`;
-      
-      // 递归渲染子节点（只有展开时才显示）
-      if (hasChildren && isExpanded) {
-        html += renderCategoryTree(node.children, level + 1, node.fullPath);
-      }
+function loadFavicons() {
+  const icons = document.querySelectorAll('.bm-icon[data-fav]');
+  if (icons.length === 0) return;
+  const observer = getFavObserver();
+  icons.forEach(el => observer.observe(el));
+}
+
+// === 数据加载 ===
+async function loadData() {
+  try {
+    const resp = await fetch('/api/bookmarks');
+    if (resp.ok) {
+      const data = await resp.json();
+      renderData(data);
+      return;
     }
+  } catch (e) { console.error('从后端获取数据失败:', e); }
+  document.getElementById('content').innerHTML = '<div class="empty">无法连接后端服务</div>';
+}
+
+// === 最近使用（后端API） ===
+async function recordVisit(url, title) {
+  if (!url) return;
+  try {
+    await fetch('/api/visit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title: title || url, url: url, device_id: deviceId})
+    });
+  } catch (e) { console.error('记录访问失败:', e); }
+}
+
+async function removeVisited(url) {
+  try {
+    await fetch('/api/recent/delete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url: url, device_id: deviceId})
+    });
+  } catch (e) { console.error('删除最近使用失败:', e); }
+  refreshTopVisited();
+}
+
+async function getRecentVisited() {
+  try {
+    const resp = await fetch(`/api/recent?device_id=${encodeURIComponent(deviceId)}`);
+    const data = await resp.json();
+    const items = data.items || [];
+    return items.map(item => ({ url: item.url, title: item.title, lastVisit: item.timestamp || 0 }));
+  } catch (e) { console.error('获取最近使用失败:', e); return []; }
+}
+
+function renderTopVisited(items) {
+  if (!items || items.length === 0) return '';
+  let html = '<div class="top-visited">';
+  html += '<div class="top-visited-title">最近使用</div>';
+  html += '<div class="top-visited-grid">';
+  items.forEach(item => {
+    const t = escHtml(cleanTitle(item.title));
+    html += `<a class="top-visited-item ${isShakeMode ? 'shake' : ''}" href="${escAttr(item.url)}" target="_blank" rel="noopener" data-url="${escAttr(item.url)}">
+      ${isShakeMode ? '<span class="remove-badge" data-action="remove-visited">✕</span>' : ''}
+      ${bmIconHtml(item.url, item.title)}
+      <div class="top-visited-info">
+        <div class="top-visited-name">${t}</div>
+      </div>
+    </a>`;
   });
-  
+  html += '</div></div>';
   return html;
 }
 
-// 目录树展开状态
-let expandedNodes = new Set();
-
-// 初始化展开状态
-function initExpandedNodes() {
-  const saved = localStorage.getItem('expanded_nodes');
-  if (saved) {
-    expandedNodes = new Set(JSON.parse(saved));
-  }
-}
-
-// 保存展开状态
-function saveExpandedNodes() {
-  localStorage.setItem('expanded_nodes', JSON.stringify([...expandedNodes]));
-}
-
-// 切换节点展开状态
-function toggleNodeExpand(fullPath) {
-  if (expandedNodes.has(fullPath)) {
-    expandedNodes.delete(fullPath);
+async function refreshTopVisited() {
+  const slot = document.getElementById('topVisitedSlot');
+  if (!slot) return;
+  const items = await getRecentVisited();
+  if (items.length > 0) {
+    slot.innerHTML = renderTopVisited(items);
+    loadFavicons();
   } else {
-    expandedNodes.add(fullPath);
-  }
-  saveExpandedNodes();
-  renderSidebar(allCategories);
-}
-
-// 处理分类点击
-function handleCategoryClick(categoryPath, hasChildren) {
-  // 总是显示该分类的内容
-  showCategory(categoryPath);
-  
-  // 如果有子目录，同时也切换展开状态
-  if (hasChildren) {
-    toggleNodeExpand(categoryPath);
+    slot.innerHTML = '';
   }
 }
 
-// 显示全部目录概览
-function showAll() {
-  currentCat = null;
-  isSearchMode = false;
-  document.getElementById('searchInput').value = '';
-  document.getElementById('clearBtn').style.display = 'none';
-  renderSidebar(allCategories);
-  renderOverview();
-  closeSidebar();
-}
-
-// 显示单个分类
-function showCategory(categoryName) {
-  currentCat = categoryName;
-  isSearchMode = false;
-  document.getElementById('searchInput').value = '';
-  document.getElementById('clearBtn').style.display = 'none';
-  renderSidebar(allCategories);
-  const regularCategories = getRegularCategories();
-  
-  // 查找精确匹配的分类
-  const category = regularCategories.find(c => c.category === categoryName);
-  
-  if (category) {
-    // 如果找到精确匹配，显示该分类
-    renderCategoryDetail(category, regularCategories);
-  } else {
-    // 如果没有精确匹配（可能是父目录），创建一个虚拟分类对象
-    const subdirectories = regularCategories.filter(c => 
-      c.category.startsWith(categoryName + ' / ')
-    );
-    
-    if (subdirectories.length > 0) {
-      // 创建虚拟分类对象用于显示
-      const virtualCategory = {
-        category: categoryName,
-        items: [], // 父目录没有直接的书签
-        virtual: true // 标记为虚拟分类
-      };
-      renderCategoryDetail(virtualCategory, regularCategories);
-    } else {
-      // 没有找到匹配，显示空状态
-      const content = document.getElementById('content');
-      content.innerHTML = `<div class="category-title">
-        <span class="back-btn" onclick="showAll()">← 返回</span>
-        <span>${escHtml(categoryName)}</span>
-      </div>
-      <div class="category-subtitle">该目录下没有书签</div>`;
-    }
-  }
-  closeSidebar();
-}
-
-// 概览视图
-function renderOverview() {
-  const content = document.getElementById('content');
-  let html = '';
-
-  // 最近常用
-  if (recentData.length > 0) {
-    // 分离置顶和未置顶
-    const pinned = recentData.filter(item => item.pinned);
-    const unpinned = recentData.filter(item => !item.pinned);
-    
-    html += '<div class="recent-section"><h2>⭐ 最近常用</h2><div class="recent-grid">';
-    
-    // 渲染置顶项
-    pinned.forEach((item, index) => {
-      html += `<div class="recent-item pinned" data-url="${escAttr(item.url)}" data-index="${index}" draggable="true">
-        <span class="delete-btn" onclick="deleteRecent(event, '${escJs(item.url)}')">&times;</span>
-        <span class="pin-btn" onclick="togglePin(event, '${escJs(item.url)}', false)">&#128274;</span>
-        <span class="dot"></span>
-        <span class="recent-content">${escHtml(cleanTitle(item.title, item.url))}</span>
-      </div>`;
-    });
-    
-    // 渲染未置顶项
-    unpinned.forEach((item, index) => {
-      html += `<div class="recent-item" data-url="${escAttr(item.url)}" data-index="${index}">
-        <span class="delete-btn" onclick="deleteRecent(event, '${escJs(item.url)}')">&times;</span>
-        <span class="pin-btn" onclick="togglePin(event, '${escJs(item.url)}', true)">&#128205;</span>
-        <span class="dot"></span>
-        <span class="recent-content">${escHtml(cleanTitle(item.title, item.url))}</span>
-      </div>`;
-    });
-    
-    html += '</div></div>';
-  }
-
-  // 根书签（书签栏内容）
-  const rootBookmarks = getRootBookmarks();
-  if (rootBookmarks.length > 0) {
-    html += '<div class="recent-section"><h2>📌 书签栏</h2><div class="bookmark-grid">';
-    rootBookmarks.forEach(item => {
-      const t = escHtml(cleanTitle(item.title, item.url));
-      const u = escHtml(item.url);
-      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener" onclick="recordVisit('${escJs(item.title)}','${escJs(item.url)}','书签栏')">
-        ${bmIconHtml(item.url, item.title)}
-        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
-      </a>`;
-    });
-    html += '</div></div>';
-  }
-
-  // 目录卡片
-  const regularCategories = getRegularCategories();
-  html += '<div class="overview-grid">';
-  regularCategories.forEach((cat, i) => {
-    const name = escHtml(cat.category);
-    const shortName = name.split(' / ').pop();
-    html += `<div class="overview-card" 
-             data-category="${escAttr(cat.category)}"
-             onclick="showCategory('${escJs(cat.category)}')">
-      <span class="oc-icon ico-${i % 8}">${catIcon(i)}</span>
-      <span class="oc-name">${escHtml(shortName)}</span>
-      <span class="oc-count">${cat.items.length > 0 ? cat.items.length + ' 个书签' : ''}</span>
-    </div>`;
-  });
-  html += '</div>';
-  content.innerHTML = html;
-  setupLongPress();
-}
-
-// 分类详情视图
-function renderCategoryDetail(cat, categories) {
-  const content = document.getElementById('content');
-  const name = escHtml(cat.category);
-  const idx = categories.findIndex(c => c.category === cat.category);
-
-  // 查找子目录
-  const subdirectories = categories.filter(c => 
-    c.category !== cat.category && 
-    c.category.startsWith(cat.category + ' / ')
-  );
-
-  let html = `<div class="category-title">
-    <span class="back-btn" onclick="showAll()">← 返回</span>
-    <span class="ico-${idx >= 0 ? idx % 8 : 0}">${catIcon(idx >= 0 ? idx : 0)}</span> ${name}
-  </div>
-  <div class="category-subtitle">${cat.items.length} 个书签${subdirectories.length > 0 ? `, ${subdirectories.length} 个子目录` : ''}</div>`;
-
-  // 先显示书签
-  if (cat.items && cat.items.length > 0) {
-    html += '<div class="bookmark-grid">';
-    cat.items.forEach(item => {
-      const t = escHtml(cleanTitle(item.title, item.url));
-      const u = escHtml(item.url);
-      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener" onclick="recordVisit('${escJs(item.title)}','${escJs(item.url)}','${escJs(cat.category)}')">
-        ${bmIconHtml(item.url, item.title)}
-        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
-      </a>`;
-    });
-    html += '</div>';
-  }
-
-  // 再显示子目录
-  if (subdirectories.length > 0) {
-    html += '<div class="subdirectory-section"><h3>子目录</h3><div class="subdirectory-grid">';
-    subdirectories.forEach((subcat, i) => {
-      const subName = escHtml(subcat.category.split(' / ').pop());
-      const subIdx = categories.findIndex(c => c.category === subcat.category);
-      html += `<div class="subdirectory-card" onclick="showCategory('${escJs(subcat.category)}')">
-        <span class="subdir-icon ico-${subIdx >= 0 ? subIdx % 8 : i % 8}">${catIcon(subIdx >= 0 ? subIdx : i)}</span>
-        <span class="subdir-name">${subName}</span>
-        <span class="subdir-count">${subcat.items.length} 个书签</span>
-      </div>`;
-    });
-    html += '</div></div>';
-  }
-
-  content.innerHTML = html;
-  loadFavicons();
-}
-
-// 搜索结果视图
-function renderSearch(data) {
-  const content = document.getElementById('content');
-  if (!data.categories || data.categories.length === 0) {
-    content.innerHTML = '<div class="empty">未找到匹配的书签</div>';
-    return;
-  }
-  let html = `<div class="category-title">🔍 搜索结果</div>
-    <div class="category-subtitle">共 ${data.total} 个匹配</div>`;
-  data.categories.forEach(cat => {
-    html += `<div style="margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:8px;">${escHtml(cat.category)}</div>
-      <div class="bookmark-grid">`;
-    cat.items.forEach(item => {
-      const t = escHtml(cleanTitle(item.title, item.url));
-      const u = escHtml(item.url);
-      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener" onclick="recordVisit('${escJs(item.title)}','${escJs(item.url)}','${escJs(cat.category)}')">
-        ${bmIconHtml(item.url, item.title)}
-        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
-      </a>`;
-    });
-    html += '</div></div>';
-  });
-  content.innerHTML = html;
-  loadFavicons();
-}
-
-// 初始化
-async function init() {
-  // 先从 localStorage 加载缓存，实现即时显示
-  loadFromLocalStorage();
-  
-  // 如果有缓存，先显示缓存内容
-  if (cachedBookmarks) {
-    allCategories = cachedBookmarks.categories || [];
-    renderSidebar(allCategories);
-    renderOverview();
-    const total = cachedBookmarks.total || 0;
-    const updateTime = cachedBookmarks.last_update ? new Date(cachedBookmarks.last_update * 1000).toLocaleString('zh-CN') : '-';
-    document.getElementById('stats').textContent = `${total} 书签 | ${updateTime}`;
-  }
-  
-  // 然后在后台检查更新
-  const [data] = await Promise.all([loadBookmarks(), loadRecent()]);
-  allCategories = data.categories || [];
-  renderSidebar(allCategories);
-  renderOverview();
-  // 统计
-  const total = data.total || 0;
-  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '-';
-  document.getElementById('stats').textContent = `${total} 书签 | ${updateTime}`;
-  
-  // 初始化搜索事件监听
-  setupSearch();
-  
-  // 自动聚焦搜索框
-  document.getElementById('searchInput').focus();
-  
-  // 初始化主题
-  initTheme();
-  
-  // 初始化侧边栏折叠状态
-  initSidebarCollapse();
-  
-  // 初始化目录树展开状态
-  initExpandedNodes();
-  
-  // 初始化日历和天气
-  updateCalendar();
-  initWeather();
-}
-
-// 获取根书签
-function getRootBookmarks() {
-  const rootCat = allCategories.find(c => c.category === '__root_bookmarks__');
-  return rootCat ? rootCat.items : [];
-}
-
-// 获取普通分类（排除根书签）
-function getRegularCategories() {
+// === 目录信息 ===
+function getCategories() {
   return allCategories.filter(c => c.category !== '__root_bookmarks__');
 }
 
-// 搜索
-let searchTimer = null;
+// === 渲染 ===
+function getValidCategories() {
+  if (!_validCategories) {
+    _validCategories = getCategories().filter(c => c.items.length > 0);
+  }
+  return _validCategories;
+}
+
+function renderData(data) {
+  allCategories = data.categories || [];
+  _validCategories = null;
+  const total = data.total || 0;
+  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
+  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | ${updateTime}`;
+  if (isSearchMode) return;
+  renderMainView();
+}
+
+function renderMainView() {
+  const content = document.getElementById('content');
+  const validCategories = getValidCategories();
+
+  let html = '';
+  html += '<div id="topVisitedSlot"></div>';
+  html += '<div class="category-grid">';
+  validCategories.forEach((cat, i) => {
+    const shortName = cat.category.split(' / ').pop();
+    const isActive = activeCat === cat.category;
+    html += `<div class="cat-card ${isActive ? 'active' : ''}" data-cat="${escAttr(cat.category)}" data-idx="${i}">
+      <div class="cat-icon ico-${i % 8}">${catIcon(i)}</div>
+      <div class="cat-name">${escHtml(shortName)}</div>
+      <div class="cat-count">${cat.items.length} 书签</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  if (activeCat) {
+    html += renderBookmarkPanel(activeCat, validCategories);
+  }
+
+  content.innerHTML = html;
+  bindContentEvents();
+  loadFavicons();
+
+  requestAnimationFrame(() => {
+    getRecentVisited().then(items => {
+      const slot = document.getElementById('topVisitedSlot');
+      if (slot && items.length > 0) {
+        slot.innerHTML = renderTopVisited(items);
+        loadFavicons();
+      }
+    });
+  });
+}
+
+function renderBookmarkPanel(categoryName, validCategories) {
+  const catIdx = validCategories.findIndex(c => c.category === categoryName);
+  const cat = validCategories[catIdx];
+  if (!cat) return '';
+
+  const shortName = categoryName.split(' / ').pop();
+  const parentPath = categoryName.includes(' / ') ? categoryName.substring(0, categoryName.lastIndexOf(' / ')) : '';
+
+  let html = '<div class="bookmark-panel">';
+  html += '<div class="bookmark-panel-header">';
+  html += `<span class="panel-icon ico-${catIdx % 8}">${catIcon(catIdx)}</span>`;
+  html += `<span class="panel-title">${escHtml(shortName)}</span>`;
+  if (parentPath) html += `<span class="panel-path">${escHtml(parentPath)}</span>`;
+  html += `<span class="panel-count">${cat.items.length} 个书签</span>`;
+  html += '<div class="panel-close" data-action="close-panel">✕</div>';
+  html += '</div>';
+
+  html += '<div class="bookmark-grid">';
+  cat.items.forEach(item => {
+    const t = escHtml(cleanTitle(item.title));
+    const u = escHtml(item.url);
+    html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+      ${bmIconHtml(item.url, item.title)}
+      <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
+    </a>`;
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function updateFoldState() {
+  const input = document.getElementById('searchInput');
+  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
+  document.querySelector('.container').classList.toggle('searching', shouldFold);
+}
+
+function toggleCategory(catName) {
+  activeCat = (activeCat === catName) ? null : catName;
+  isSearchMode = false;
+  updateFoldState();
+
+  const content = document.getElementById('content');
+  content.querySelectorAll('.cat-card').forEach(card => {
+    card.classList.toggle('active', card.dataset.cat === activeCat);
+  });
+
+  const oldPanel = content.querySelector('.bookmark-panel');
+  if (oldPanel) oldPanel.remove();
+
+  if (activeCat) {
+    const validCategories = getValidCategories();
+    const panelHtml = renderBookmarkPanel(activeCat, validCategories);
+    if (panelHtml) {
+      const grid = content.querySelector('.category-grid');
+      grid.insertAdjacentHTML('afterend', panelHtml);
+      loadFavicons();
+    }
+  }
+}
+
+function closeBookmarkPanel() {
+  activeCat = null;
+  updateFoldState();
+  const content = document.getElementById('content');
+  content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
+  const panel = content.querySelector('.bookmark-panel');
+  if (panel) panel.remove();
+}
+
+// === 交互 ===
+let contentEventsBound = false;
+let longPressTimer = null;
+
+function bindContentEvents() {
+  if (contentEventsBound) return;
+  contentEventsBound = true;
+  const content = document.getElementById('content');
+
+  content.addEventListener('click', (e) => {
+    if (isShakeMode && !e.target.closest('.top-visited-item')) {
+      isShakeMode = false;
+      refreshTopVisited();
+      return;
+    }
+
+    const removeBtn = e.target.closest('[data-action="remove-visited"]');
+    if (removeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const item = removeBtn.closest('.top-visited-item');
+      const url = item?.dataset.url;
+      if (url) removeVisited(url);
+      return;
+    }
+
+    const bmItem = e.target.closest('a.bookmark-item[href]');
+    if (bmItem) {
+      recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
+    }
+
+    const tvItem = e.target.closest('a.top-visited-item[href]');
+    if (tvItem) {
+      if (isShakeMode) { e.preventDefault(); return; }
+      recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
+    }
+
+    const card = e.target.closest('.cat-card[data-cat]');
+    if (card) {
+      toggleCategory(card.dataset.cat);
+      return;
+    }
+
+    const closeBtn = e.target.closest('[data-action="close-panel"]');
+    if (closeBtn) {
+      closeBookmarkPanel();
+      return;
+    }
+  });
+
+  content.addEventListener('pointerdown', (e) => {
+    const tvItem = e.target.closest('.top-visited-item');
+    if (!tvItem) return;
+    longPressTimer = setTimeout(() => {
+      isShakeMode = !isShakeMode;
+      refreshTopVisited();
+    }, 500);
+  });
+
+  const cancelLongPress = () => { clearTimeout(longPressTimer); };
+  content.addEventListener('pointerup', cancelLongPress);
+  content.addEventListener('pointermove', cancelLongPress);
+  content.addEventListener('pointercancel', cancelLongPress);
+}
+
+// === 搜索 ===
+const SEARCH_ENGINE = { name: 'Bing', url: 'https://cn.bing.com/search?q=' };
+
+function openSearch(query) {
+  const v = query.trim();
+  if (!v) return;
+  if (v.startsWith('http') || v.includes('.')) {
+    window.location.href = v.startsWith('http') ? v : 'https://' + v;
+    return;
+  }
+  window.location.href = SEARCH_ENGINE.url + encodeURIComponent(v);
+}
 
 function setupSearch() {
-  const searchInput = document.getElementById('searchInput');
-  const clearBtn = document.getElementById('clearBtn');
-  
-  if (!searchInput || !clearBtn) return;
-  
-  searchInput.addEventListener('input', function() {
-    clearTimeout(searchTimer);
-    const v = this.value.trim();
-    clearBtn.style.display = v ? 'block' : 'none';
-    if (!v) { isSearchMode = false; renderSidebar(allCategories); if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview(); return; }
-    searchTimer = setTimeout(async () => {
-      isSearchMode = true;
-      currentCat = null;
-      const data = await loadBookmarks(v);
-      renderSidebar(allCategories);
-      renderSearch(data);
-    }, 300);
+  const input = document.getElementById('searchInput');
+  let timer = null;
+
+  input.addEventListener('focus', updateFoldState);
+
+  input.addEventListener('blur', () => {
+    setTimeout(updateFoldState, 50);
   });
 
-  clearBtn.addEventListener('click', function() {
-    searchInput.value = '';
-    clearBtn.style.display = 'none';
-    isSearchMode = false;
-    renderSidebar(allCategories);
-    if (currentCat !== null) renderCategoryDetail(currentCat); else renderOverview();
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const v = input.value.trim();
+    if (!v) {
+      isSearchMode = false;
+      renderMainView();
+      updateFoldState();
+      return;
+    }
+    timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
   });
-}
 
-// 移动端侧边栏
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebarOverlay').classList.toggle('open');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
-}
-
-// 小屏搜索框切换
-function toggleSearchBox() {
-  const searchBox = document.getElementById('searchBox');
-  searchBox.classList.toggle('show');
-  if (searchBox.classList.contains('show')) {
-    document.getElementById('searchInput').focus();
-  }
-}
-
-// 长按处理
-let longPressTimer = null;
-let longPressElement = null;
-let wasLongPress = false;
-
-function setupLongPress() {
-  document.querySelectorAll('.recent-item').forEach(item => {
-    item.addEventListener('mousedown', startLongPress);
-    item.addEventListener('touchstart', startLongPress);
-    item.addEventListener('mouseup', cancelLongPress);
-    item.addEventListener('mouseleave', cancelLongPress);
-    item.addEventListener('touchend', cancelLongPress);
-    item.addEventListener('click', handleRecentClick);
-    
-    // 拖拽事件（仅置顶项）
-    if (item.classList.contains('pinned')) {
-      item.addEventListener('dragstart', handleDragStart);
-      item.addEventListener('dragend', handleDragEnd);
-      item.addEventListener('dragover', handleDragOver);
-      item.addEventListener('dragleave', handleDragLeave);
-      item.addEventListener('drop', handleDrop);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const v = input.value.trim();
+      if (v && (v.startsWith('http') || v.includes('.'))) {
+        window.location.href = v.startsWith('http') ? v : 'https://' + v;
+      }
     }
   });
-}
 
-function startLongPress(e) {
-  if (e.target.classList.contains('delete-btn') || e.target.classList.contains('pin-btn')) return;
-  
-  wasLongPress = false;
-  longPressElement = e.currentTarget;
-  longPressTimer = setTimeout(() => {
-    if (longPressElement) {
-      longPressElement.classList.add('show-delete');
-      wasLongPress = true;
-    }
-  }, 500);
-}
-
-function cancelLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-}
-
-function handleRecentClick(e) {
-  if (e.target.classList.contains('delete-btn')) return;
-  
-  const item = e.currentTarget;
-  const url = item.dataset.url;
-  
-  // 如果显示删除按钮且不是长按触发的，先隐藏
-  if (item.classList.contains('show-delete') && !wasLongPress) {
-    item.classList.remove('show-delete');
-    return;
-  }
-  
-  // 重置长按标志
-  wasLongPress = false;
-  
-  // 如果显示删除按钮是长按触发的，不执行跳转
-  if (item.classList.contains('show-delete')) {
-    return;
-  }
-  
-  // 否则跳转
-  const title = recentData.find(r => r.url === url)?.title || '';
-  const category = recentData.find(r => r.url === url)?.category || '';
-  window.open(url, '_blank');
-  recordVisit(title, url, category);
-}
-
-// 删除最近常用项
-async function deleteRecent(event, url) {
-  event.stopPropagation();
-  event.preventDefault();
-  
-  await fetch('/api/recent/delete', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url, device_id: deviceId})
+  document.getElementById('searchGo').addEventListener('click', () => {
+    openSearch(input.value);
   });
-  
-  await loadRecent();
-  renderOverview();
 }
 
-// 置顶/取消置顶
-async function togglePin(event, url, pin) {
-  event.stopPropagation();
-  event.preventDefault();
-  
-  await fetch('/api/recent/pin', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url, pin, device_id: deviceId})
-  });
-  
-  await loadRecent();
-  renderOverview();
-}
+async function performSearch(keyword) {
+  // 使用后端API搜索
+  try {
+    const resp = await fetch('/api/bookmarks?q=' + encodeURIComponent(keyword));
+    const data = await resp.json();
+    const categories = data.categories || [];
 
-// 拖拽相关
-let draggedItem = null;
+    const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
+    const searchUrl = SEARCH_ENGINE.url + encodeURIComponent(keyword);
+    let html = `<a class="search-engine-hint" href="${escAttr(searchUrl)}" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+      在 ${escHtml(SEARCH_ENGINE.name)} 中搜索「${escHtml(displayKeyword)}」
+    </a>`;
 
-function handleDragStart(e) {
-  draggedItem = e.currentTarget;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', e.currentTarget.dataset.url);
-}
-
-function handleDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  document.querySelectorAll('.recent-item').forEach(item => {
-    item.classList.remove('drag-over');
-  });
-  draggedItem = null;
-}
-
-function handleDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  if (e.currentTarget !== draggedItem && e.currentTarget.classList.contains('pinned')) {
-    e.currentTarget.classList.add('drag-over');
-  }
-}
-
-function handleDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
-async function handleDrop(e) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  
-  if (e.currentTarget === draggedItem || !e.currentTarget.classList.contains('pinned')) {
-    return;
-  }
-  
-  const draggedUrl = draggedItem.dataset.url;
-  const targetUrl = e.currentTarget.dataset.url;
-  
-  // 获取当前置顶项的URL顺序
-  const pinnedItems = document.querySelectorAll('.recent-item.pinned');
-  const urls = Array.from(pinnedItems).map(item => item.dataset.url);
-  
-  // 重新排序
-  const draggedIndex = urls.indexOf(draggedUrl);
-  const targetIndex = urls.indexOf(targetUrl);
-  
-  if (draggedIndex !== -1 && targetIndex !== -1) {
-    urls.splice(draggedIndex, 1);
-    urls.splice(targetIndex, 0, draggedUrl);
-    
-    // 保存新顺序
-    await fetch('/api/recent/reorder', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({urls, device_id: deviceId})
+    let found = false;
+    categories.forEach(cat => {
+      if (cat.items && cat.items.length > 0) {
+        found = true;
+        html += `<div class="search-category">${escHtml(cat.category)}</div><div class="bookmark-grid">`;
+        cat.items.forEach(item => {
+          html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+            ${bmIconHtml(item.url, item.title)}
+            <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
+          </a>`;
+        });
+        html += '</div>';
+      }
     });
-    
-    await loadRecent();
-    renderOverview();
+
+    if (!found) html += '<div class="empty">未找到匹配的书签</div>';
+    document.getElementById('content').innerHTML = html;
+    loadFavicons();
+  } catch (e) {
+    console.error('搜索失败:', e);
+    document.getElementById('content').innerHTML = '<div class="empty">搜索失败</div>';
   }
 }
 
-// 工具函数
-function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function escAttr(s) { return escHtml(s); }
-function escJs(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+// === Bing 每日壁纸 ===
+async function loadBingWallpaper() {
+  // 从 localStorage 读取设置，默认启用
+  const enableWallpaper = localStorage.getItem('enableWallpaper');
+  if (enableWallpaper === 'false') {
+    removeWallpaper();
+    return;
+  }
 
-init();
+  const cached = localStorage.getItem('bing_wallpaper');
+  const cachedDate = localStorage.getItem('bing_wallpaper_date');
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (cached && cachedDate === today) {
+    applyWallpaper(cached);
+    return;
+  }
+
+  try {
+    const resp = await fetch('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.images && data.images.length > 0) {
+      const imgUrl = 'https://www.bing.com' + data.images[0].url;
+      applyWallpaper(imgUrl);
+      localStorage.setItem('bing_wallpaper', imgUrl);
+      localStorage.setItem('bing_wallpaper_date', today);
+    }
+  } catch (e) {
+    if (cached) applyWallpaper(cached);
+  }
+}
+
+function applyWallpaper(url) {
+  document.body.style.backgroundImage = `url(${url})`;
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.classList.add('has-wallpaper');
+}
+
+function removeWallpaper() {
+  document.body.style.backgroundImage = '';
+  document.body.style.backgroundSize = '';
+  document.body.style.backgroundPosition = '';
+  document.body.style.backgroundRepeat = '';
+  document.body.classList.remove('has-wallpaper');
+}
+
+// === 天气/主题交互绑定 ===
+document.getElementById('weatherIcon').addEventListener('click', toggleCityInput);
+document.getElementById('weatherCityInput').addEventListener('keydown', handleCityInput);
+document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+// === 初始化 ===
+initTheme();
+updateClock();
+setInterval(updateClock, 10000);
+setupSearch();
+loadData();
+initWeather();
+loadBingWallpaper();
 </script>
 </body>
 </html>
