@@ -2,6 +2,7 @@
 import re
 from html import unescape
 from typing import List, Dict
+from pypinyin import lazy_pinyin, Style
 
 
 def parse_bookmarks(file_path: str) -> List[Dict]:
@@ -146,8 +147,22 @@ def flatten_bookmarks(categories: List[Dict]) -> List[Dict]:
     return items
 
 
+_pinyin_cache = {}
+
+
+def _get_pinyin_keys(text: str) -> tuple:
+    """获取文本的全拼和首字母（缓存优化）"""
+    if text in _pinyin_cache:
+        return _pinyin_cache[text]
+    full = ''.join(lazy_pinyin(text))
+    initial = ''.join(lazy_pinyin(text, style=Style.FIRST_LETTER))
+    result = (full.lower(), initial.lower())
+    _pinyin_cache[text] = result
+    return result
+
+
 def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
-    """全局搜索书签，匹配标题或URL"""
+    """全局搜索书签，匹配标题（含拼音/首字母）、URL"""
     keyword = keyword.lower().strip()
     if not keyword:
         return categories
@@ -156,7 +171,14 @@ def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
     for cat in categories:
         matched_items = []
         for item in cat["items"]:
-            if keyword in item["title"].lower() or keyword in item["url"].lower():
+            title = item["title"]
+            url = item["url"].lower()
+            if keyword in title.lower() or keyword in url:
+                matched_items.append(item)
+                continue
+            # 拼音全拼 + 首字母匹配
+            full_py, initial_py = _get_pinyin_keys(title)
+            if keyword in full_py or keyword in initial_py:
                 matched_items.append(item)
         if matched_items:
             result.append({

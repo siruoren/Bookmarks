@@ -647,7 +647,9 @@ function performSearch(keyword) {
   let found = false;
   categories.forEach(cat => {
     const matched = cat.items.filter(item =>
-      item.title.toLowerCase().includes(keyword) || item.url.toLowerCase().includes(keyword)
+      item.title.toLowerCase().includes(keyword) ||
+      item.url.toLowerCase().includes(keyword) ||
+      pinyin.match(item.title, keyword)
     );
     if (matched.length > 0) {
       found = true;
