@@ -212,20 +212,11 @@ body.has-wallpaper > * {
 [data-theme="light"] .topbar-clock { color: #2d3748; }
 [data-theme="light"] .topbar-date { color: #4a5568; }
 
-/* 搜索模式：缩小搜索框下方间距 */
-.container.searching .search-section {
-  margin-bottom: 16px;
-}
-
-.search-section {
-  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* === 搜索框 === */
 .search-section {
   width: 100%;
   max-width: 600px;
-  margin: 6vh auto 32px;
+  margin: 6vh auto 24px;
   flex-shrink: 0;
 }
 
@@ -1157,14 +1148,13 @@ function renderMainView() {
   bindContentEvents();
   loadFavicons();
 
-  requestAnimationFrame(() => {
-    getRecentVisited().then(items => {
-      const slot = document.getElementById('topVisitedSlot');
-      if (slot && items.length > 0) {
-        slot.innerHTML = renderTopVisited(items);
-        loadFavicons();
-      }
-    });
+  // 同步填充最近使用（避免异步导致布局抖动）
+  getRecentVisited().then(items => {
+    const slot = document.getElementById('topVisitedSlot');
+    if (slot && items.length > 0) {
+      slot.innerHTML = renderTopVisited(items);
+      loadFavicons();
+    }
   });
 }
 
@@ -1198,11 +1188,8 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-function updateFoldState() {
-  const input = document.getElementById('searchInput');
-  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
-  document.querySelector('.container').classList.toggle('searching', shouldFold);
-}
+// 折叠状态已移除（margin 不再变化），保留空函数避免调用报错
+function updateFoldState() {}
 
 function toggleCategory(catName) {
   activeCat = (activeCat === catName) ? null : catName;

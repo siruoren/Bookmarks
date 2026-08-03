@@ -226,20 +226,11 @@ body.has-wallpaper > * {
 [data-theme="light"] .topbar-clock { color: #2d3748; }
 [data-theme="light"] .topbar-date { color: #4a5568; }
 
-/* 搜索模式：缩小搜索框下方间距 */
-.container.searching .search-section {
-  margin-bottom: 16px;
-}
-
-.search-section {
-  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* === 搜索框 === */
 .search-section {
   width: 100%;
   max-width: 600px;
-  margin: 6vh auto 32px;
+  margin: 6vh auto 24px;
   flex-shrink: 0;
 }
 

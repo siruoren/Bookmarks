@@ -395,15 +395,13 @@ function renderMainView() {
   bindContentEvents();
   loadFavicons();
 
-  // 异步填充最近使用（requestAnimationFrame 避免与主渲染争抢）
-  requestAnimationFrame(() => {
-    getRecentVisited().then(items => {
-      const slot = document.getElementById('topVisitedSlot');
-      if (slot && items.length > 0) {
-        slot.innerHTML = renderTopVisited(items);
-        loadFavicons();
-      }
-    });
+  // 同步填充最近使用（避免异步导致布局抖动）
+  getRecentVisited().then(items => {
+    const slot = document.getElementById('topVisitedSlot');
+    if (slot && items.length > 0) {
+      slot.innerHTML = renderTopVisited(items);
+      loadFavicons();
+    }
   });
 }
 
@@ -437,12 +435,8 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-// 统一管理折叠状态：输入框聚焦 / 有内容 / 目录展开 任一为 true 则折叠
-function updateFoldState() {
-  const input = document.getElementById('searchInput');
-  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
-  document.querySelector('.container').classList.toggle('searching', shouldFold);
-}
+// 折叠状态已移除（margin 不再变化），保留空函数避免调用报错
+function updateFoldState() {}
 
 // 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
 function toggleCategory(catName) {
