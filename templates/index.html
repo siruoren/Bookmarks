@@ -681,8 +681,7 @@ body.has-wallpaper > * {
 .ico-0 { color: #e74c3c; } .ico-1 { color: #e67e22; } .ico-2 { color: #f1c40f; } .ico-3 { color: #2ecc71; }
 .ico-4 { color: #1abc9c; } .ico-5 { color: #3498db; } .ico-6 { color: #9b59b6; } .ico-7 { color: #e91e63; }
 
-/* 加载/空状态 */
-.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
+/* 空状态 */
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
 /* 更新信息 - 固定底部居中 */
@@ -1187,13 +1186,9 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-// 折叠状态已移除（margin 不再变化），保留空函数避免调用报错
-function updateFoldState() {}
-
 function toggleCategory(catName) {
   activeCat = (activeCat === catName) ? null : catName;
   isSearchMode = false;
-  updateFoldState();
 
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => {
@@ -1216,7 +1211,6 @@ function toggleCategory(catName) {
 
 function closeBookmarkPanel() {
   activeCat = null;
-  updateFoldState();
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
@@ -1306,12 +1300,6 @@ function setupSearch() {
   const clearBtn = document.getElementById('searchClear');
   let timer = null;
 
-  input.addEventListener('focus', updateFoldState);
-
-  input.addEventListener('blur', () => {
-    setTimeout(updateFoldState, 50);
-  });
-
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
@@ -1319,7 +1307,6 @@ function setupSearch() {
     if (!v) {
       isSearchMode = false;
       renderMainView();
-      updateFoldState();
       return;
     }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
@@ -1340,7 +1327,6 @@ function setupSearch() {
     isSearchMode = false;
     activeCat = null;
     renderMainView();
-    updateFoldState();
     input.focus();
   });
 

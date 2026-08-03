@@ -91,12 +91,6 @@ def save_device_recent(device_id: str, items: List[Dict]):
         logger.warning("保存设备 %s 的最近访问记录失败: %s", device_id, e)
 
 
-def save_recent():
-    """保存最近访问记录（兼容旧接口）"""
-    # 这个函数现在只用于兼容，实际保存使用 save_device_recent
-    pass
-
-
 def add_recent(title: str, url: str, category: str = "", device_id: str = "default"):
     """添加最近访问项"""
     global recent_items
@@ -314,54 +308,6 @@ def api_refresh():
     """手动触发刷新"""
     refresh_bookmarks()
     return jsonify({"ok": True, "last_update": last_update})
-
-
-@app.route("/api/recent/pin", methods=["POST"])
-def api_recent_pin():
-    """置顶/取消置顶最近常用项"""
-    data = request.get_json(silent=True) or {}
-    url = data.get("url", "")
-    pin = data.get("pin", True)
-    device_id = data.get("device_id", "default")
-    if url and device_id in recent_items:
-        device_items = recent_items[device_id]
-        for item in device_items:
-            if item["url"] == url:
-                item["pinned"] = pin
-                if pin:
-                    # 置顶时移到最前面
-                    recent_items[device_id] = [item] + [r for r in device_items if r["url"] != url]
-                else:
-                    # 取消置顶时移到未置顶区域
-                    recent_items[device_id] = [r for r in device_items if r["url"] != url] + [item]
-                break
-        save_device_recent(device_id, recent_items[device_id])
-    return jsonify({"ok": True})
-
-
-@app.route("/api/recent/reorder", methods=["POST"])
-def api_recent_reorder():
-    """重新排序置顶项"""
-    data = request.get_json(silent=True) or {}
-    urls = data.get("urls", [])
-    device_id = data.get("device_id", "default")
-    if urls and device_id in recent_items:
-        device_items = recent_items[device_id]
-        # 分离置顶和未置顶
-        pinned = [r for r in device_items if r.get("pinned", False)]
-        unpinned = [r for r in device_items if not r.get("pinned", False)]
-        
-        # 按新的URL顺序重新排列置顶项
-        pinned_dict = {r["url"]: r for r in pinned}
-        new_pinned = []
-        for url in urls:
-            if url in pinned_dict:
-                new_pinned.append(pinned_dict[url])
-        
-        # 合并
-        recent_items[device_id] = new_pinned + unpinned
-        save_device_recent(device_id, recent_items[device_id])
-    return jsonify({"ok": True})
 
 
 @app.route("/api/recent/delete", methods=["POST"])

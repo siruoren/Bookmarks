@@ -370,16 +370,6 @@ function getValidCategories() {
   return _validCategories;
 }
 
-function renderData(data) {
-  allCategories = data.categories || [];
-  _validCategories = null;  // 数据变化，清空缓存
-  const total = data.total || 0;
-  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
-  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
-  if (isSearchMode) return;
-  renderMainView();
-}
-
 function renderMainView(recentItems) {
   const content = document.getElementById('content');
   const validCategories = getValidCategories();
@@ -442,14 +432,10 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-// 折叠状态已移除（margin 不再变化），保留空函数避免调用报错
-function updateFoldState() {}
-
 // 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
 function toggleCategory(catName) {
   activeCat = (activeCat === catName) ? null : catName;
   isSearchMode = false;
-  updateFoldState();
 
   const content = document.getElementById('content');
 
@@ -477,7 +463,6 @@ function toggleCategory(catName) {
 // 关闭书签面板
 function closeBookmarkPanel() {
   activeCat = null;
-  updateFoldState();
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
@@ -588,12 +573,6 @@ function setupSearch() {
   const clearBtn = document.getElementById('searchClear');
   let timer = null;
 
-  input.addEventListener('focus', updateFoldState);
-
-  input.addEventListener('blur', () => {
-    setTimeout(updateFoldState, 50);
-  });
-
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
@@ -601,7 +580,6 @@ function setupSearch() {
     if (!v) {
       isSearchMode = false;
       renderMainView();
-      updateFoldState();
       return;
     }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
@@ -622,7 +600,6 @@ function setupSearch() {
     isSearchMode = false;
     activeCat = null;
     renderMainView();
-    updateFoldState();
     input.focus();
   });
 
@@ -679,7 +656,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     const updateTime = msg.data.last_update ? new Date(msg.data.last_update * 1000).toLocaleString('zh-CN') : '';
     if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
     if (isSearchMode) return;
-    renderMainView();
+    getRecentVisited().then(items => renderMainView(items));
   }
 });
 

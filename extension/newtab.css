@@ -695,8 +695,7 @@ body.has-wallpaper > * {
 .ico-0 { color: #e74c3c; } .ico-1 { color: #e67e22; } .ico-2 { color: #f1c40f; } .ico-3 { color: #2ecc71; }
 .ico-4 { color: #1abc9c; } .ico-5 { color: #3498db; } .ico-6 { color: #9b59b6; } .ico-7 { color: #e91e63; }
 
-/* 加载/空状态 */
-.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
+/* 空状态 */
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
 /* 更新信息 - 固定底部居中 */
