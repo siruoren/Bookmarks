@@ -1126,7 +1126,7 @@ function renderData(data) {
   _validCategories = null;
   const total = data.total || 0;
   const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
-  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | ${updateTime}`;
+  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
   if (isSearchMode) return;
   renderMainView();
 }

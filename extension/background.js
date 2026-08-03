@@ -40,7 +40,7 @@ function getConfig() {
 }
 
 // 同步书签数据（增量：先检查后端更新时间）
-async function syncBookmarks() {
+async function syncBookmarks(force = false) {
   const config = await getConfig();
   if (!config.serverUrl) {
     console.log('[Bookmarks] 未配置后端地址，跳过同步');
@@ -51,33 +51,35 @@ async function syncBookmarks() {
   const headers = config.apiPassword ? { 'X-API-Key': config.apiPassword } : {};
 
   try {
-    // 增量检查：先获取后端更新时间
+    // 增量检查：先获取后端更新时间（手动同步时跳过）
     const cached = await new Promise(resolve => {
       chrome.storage.local.get(['bookmarksCache'], r => resolve(r.bookmarksCache || null));
     });
     const localUpdateTime = cached?.last_update || 0;
 
-    const timeResp = await fetch(`${serverUrl}/api/update_time`, {
-      headers,
-      signal: AbortSignal.timeout(8000)
-    });
+    if (!force) {
+      const timeResp = await fetch(`${serverUrl}/api/update_time`, {
+        headers,
+        signal: AbortSignal.timeout(8000)
+      });
 
-    if (!timeResp.ok) {
-      console.error(timeResp.status === 401
-        ? '[Bookmarks] 认证失败: API Key 不正确'
-        : `[Bookmarks] 检查更新时间失败: ${timeResp.status}`);
-      return;
+      if (!timeResp.ok) {
+        console.error(timeResp.status === 401
+          ? '[Bookmarks] 认证失败: API Key 不正确'
+          : `[Bookmarks] 检查更新时间失败: ${timeResp.status}`);
+        return;
+      }
+
+      const remoteUpdateTime = (await timeResp.json()).last_update || 0;
+
+      // 本地缓存时间 >= 后端更新时间，无需更新
+      if (localUpdateTime > 0 && localUpdateTime >= remoteUpdateTime) {
+        console.log(`[Bookmarks] 数据无更新，跳过同步`);
+        return;
+      }
     }
 
-    const remoteUpdateTime = (await timeResp.json()).last_update || 0;
-
-    // 本地缓存时间 >= 后端更新时间，无需更新
-    if (localUpdateTime > 0 && localUpdateTime >= remoteUpdateTime) {
-      console.log(`[Bookmarks] 数据无更新，跳过同步`);
-      return;
-    }
-
-    console.log(`[Bookmarks] 检测到更新，正在同步...`);
+    console.log(`[Bookmarks] 正在同步...`);
     const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
 
     if (!resp.ok) {
@@ -112,7 +114,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // 监听消息
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'triggerSync') {
-    syncBookmarks().then(() => sendResponse({ ok: true }));
+    syncBookmarks(true).then(() => sendResponse({ ok: true }));
     return true;
   }
   if (msg.type === 'getStatus') {
