@@ -363,8 +363,8 @@ function renderData(data) {
   allCategories = data.categories || [];
   _validCategories = null;  // 数据变化，清空缓存
   const total = data.total || 0;
-  const syncTime = data._fetchTime ? new Date(data._fetchTime).toLocaleString('zh-CN') : '';
-  if (syncTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 同步于 ${syncTime}`;
+  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
+  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
   if (isSearchMode) return;
   renderMainView();
 }
@@ -673,8 +673,8 @@ chrome.runtime.onMessage.addListener((msg) => {
     allCategories = msg.data.categories || [];
     _validCategories = null;
     const total = msg.data.total || 0;
-    const syncTime = msg.data._fetchTime ? new Date(msg.data._fetchTime).toLocaleString('zh-CN') : '';
-    if (syncTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 同步于 ${syncTime}`;
+    const updateTime = msg.data.last_update ? new Date(msg.data.last_update * 1000).toLocaleString('zh-CN') : '';
+    if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
     if (isSearchMode) return;
     renderMainView();
   }
