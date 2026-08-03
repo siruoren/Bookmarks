@@ -132,10 +132,11 @@ async function testConnection() {
 
 // 立即同步
 function triggerSync() {
+  showStatus('同步中...', 'success');
   chrome.runtime.sendMessage({ type: 'triggerSync' }, resp => {
     if (resp && resp.ok) {
-      showStatus('同步已触发', 'success');
-      setTimeout(updateStatus, 1000);
+      showStatus('同步成功', 'success');
+      updateStatus();
     } else {
       showStatus('同步请求失败', 'error');
     }
@@ -156,7 +157,10 @@ function updateStatus() {
 
     totalEl.textContent = status.total > 0 ? `${status.total} 个` : '-';
 
-    if (status.lastFetch > 0) {
+    if (status.lastUpdate > 0) {
+      const d = new Date(status.lastUpdate * 1000);
+      fetchEl.textContent = d.toLocaleString('zh-CN');
+    } else if (status.lastFetch > 0) {
       const d = new Date(status.lastFetch);
       fetchEl.textContent = d.toLocaleString('zh-CN');
     } else {

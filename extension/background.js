@@ -39,7 +39,7 @@ function getConfig() {
   });
 }
 
-// 同步书签数据（增量：先检查后端更新时间）
+// 同步书签数据（force=true 时强制全量同步，跳过增量检查）
 async function syncBookmarks(force = false) {
   const config = await getConfig();
   if (!config.serverUrl) {
@@ -51,13 +51,13 @@ async function syncBookmarks(force = false) {
   const headers = config.apiPassword ? { 'X-API-Key': config.apiPassword } : {};
 
   try {
-    // 增量检查：先获取后端更新时间（手动同步时跳过）
-    const cached = await new Promise(resolve => {
-      chrome.storage.local.get(['bookmarksCache'], r => resolve(r.bookmarksCache || null));
-    });
-    const localUpdateTime = cached?.last_update || 0;
-
+    // 非强制同步时做增量检查
     if (!force) {
+      const cached = await new Promise(resolve => {
+        chrome.storage.local.get(['bookmarksCache'], r => resolve(r.bookmarksCache || null));
+      });
+      const localUpdateTime = cached?.last_update || 0;
+
       const timeResp = await fetch(`${serverUrl}/api/update_time`, {
         headers,
         signal: AbortSignal.timeout(8000)
@@ -72,14 +72,13 @@ async function syncBookmarks(force = false) {
 
       const remoteUpdateTime = (await timeResp.json()).last_update || 0;
 
-      // 本地缓存时间 >= 后端更新时间，无需更新
       if (localUpdateTime > 0 && localUpdateTime >= remoteUpdateTime) {
         console.log(`[Bookmarks] 数据无更新，跳过同步`);
         return;
       }
     }
 
-    console.log(`[Bookmarks] 正在同步...`);
+    console.log(`[Bookmarks] ${force ? '强制全量同步' : '增量同步'}中...`);
     const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
 
     if (!resp.ok) {
@@ -124,6 +123,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({
           configured: !!config.serverUrl,
           lastFetch: cache?._fetchTime || 0,
+          lastUpdate: cache?.last_update || 0,
           total: cache?.total || 0
         });
       });
