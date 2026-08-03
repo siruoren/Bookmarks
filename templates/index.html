@@ -191,6 +191,7 @@ body.has-wallpaper > * {
   padding: 68px 24px 0;
   overflow-y: auto;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 .container::-webkit-scrollbar { width: 4px; }
@@ -212,20 +213,11 @@ body.has-wallpaper > * {
 [data-theme="light"] .topbar-clock { color: #2d3748; }
 [data-theme="light"] .topbar-date { color: #4a5568; }
 
-/* 搜索模式：缩小搜索框下方间距 */
-.container.searching .search-section {
-  margin-bottom: 16px;
-}
-
-.search-section {
-  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* === 搜索框 === */
 .search-section {
   width: 100%;
   max-width: 600px;
-  margin: 6vh auto 32px;
+  margin: 6vh auto 24px;
   flex-shrink: 0;
 }
 
@@ -251,7 +243,7 @@ body.has-wallpaper > * {
   background: var(--card);
   color: var(--text);
   outline: none;
-  transition: all 0.3s;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
   backdrop-filter: blur(10px);
 }
 
@@ -354,7 +346,7 @@ body.has-wallpaper > * {
   color: #fff;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   cursor: pointer;
 }
 
@@ -689,8 +681,7 @@ body.has-wallpaper > * {
 .ico-0 { color: #e74c3c; } .ico-1 { color: #e67e22; } .ico-2 { color: #f1c40f; } .ico-3 { color: #2ecc71; }
 .ico-4 { color: #1abc9c; } .ico-5 { color: #3498db; } .ico-6 { color: #9b59b6; } .ico-7 { color: #e91e63; }
 
-/* 加载/空状态 */
-.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
+/* 空状态 */
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
 /* 更新信息 - 固定底部居中 */
@@ -781,9 +772,7 @@ body.has-wallpaper > * {
     </div>
   </div>
 
-  <div class="content" id="content">
-    <div class="loading">加载中...</div>
-  </div>
+  <div class="content" id="content"></div>
 
   <div class="update-info" id="updateInfo"></div>
 </div>
@@ -1157,14 +1146,13 @@ function renderMainView() {
   bindContentEvents();
   loadFavicons();
 
-  requestAnimationFrame(() => {
-    getRecentVisited().then(items => {
-      const slot = document.getElementById('topVisitedSlot');
-      if (slot && items.length > 0) {
-        slot.innerHTML = renderTopVisited(items);
-        loadFavicons();
-      }
-    });
+  // 同步填充最近使用（避免异步导致布局抖动）
+  getRecentVisited().then(items => {
+    const slot = document.getElementById('topVisitedSlot');
+    if (slot && items.length > 0) {
+      slot.innerHTML = renderTopVisited(items);
+      loadFavicons();
+    }
   });
 }
 
@@ -1198,16 +1186,9 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-function updateFoldState() {
-  const input = document.getElementById('searchInput');
-  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
-  document.querySelector('.container').classList.toggle('searching', shouldFold);
-}
-
 function toggleCategory(catName) {
   activeCat = (activeCat === catName) ? null : catName;
   isSearchMode = false;
-  updateFoldState();
 
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => {
@@ -1230,7 +1211,6 @@ function toggleCategory(catName) {
 
 function closeBookmarkPanel() {
   activeCat = null;
-  updateFoldState();
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
@@ -1320,12 +1300,6 @@ function setupSearch() {
   const clearBtn = document.getElementById('searchClear');
   let timer = null;
 
-  input.addEventListener('focus', updateFoldState);
-
-  input.addEventListener('blur', () => {
-    setTimeout(updateFoldState, 50);
-  });
-
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
@@ -1333,7 +1307,6 @@ function setupSearch() {
     if (!v) {
       isSearchMode = false;
       renderMainView();
-      updateFoldState();
       return;
     }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
@@ -1354,7 +1327,6 @@ function setupSearch() {
     isSearchMode = false;
     activeCat = null;
     renderMainView();
-    updateFoldState();
     input.focus();
   });
 

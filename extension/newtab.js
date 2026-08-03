@@ -275,13 +275,30 @@ async function fetchFromBackend() {
 
 async function loadData() {
   const cached = await loadFromCache();
-  if (cached) renderData(cached);
+  if (cached) {
+    await renderDataWithVisited(cached);
+  }
   const fresh = await fetchFromBackend();
   if (fresh) {
-    renderData(fresh);
+    // 缓存和最新数据相同时不重复渲染
+    if (cached && fresh.last_update === cached.last_update && fresh.total === cached.total) return;
+    await renderDataWithVisited(fresh);
   } else if (!cached) {
     document.getElementById('content').innerHTML = '<div class="empty">未配置后端地址或无法连接<br><small>请点击右上角设置按钮进行配置</small></div>';
   }
+}
+
+// 统一渲染：先加载最近使用，再一次性渲染，避免异步插入导致闪屏
+async function renderDataWithVisited(data) {
+  allCategories = data.categories || [];
+  _validCategories = null;
+  const total = data.total || 0;
+  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
+  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
+  if (isSearchMode) return;
+
+  const recentItems = await getRecentVisited();
+  renderMainView(recentItems);
 }
 
 // === 最近使用 ===
@@ -335,15 +352,9 @@ function renderTopVisited(items) {
 }
 
 async function refreshTopVisited() {
-  const slot = document.getElementById('topVisitedSlot');
-  if (!slot) return;
   const items = await getRecentVisited();
-  if (items.length > 0) {
-    slot.innerHTML = renderTopVisited(items);
-    loadFavicons();
-  } else {
-    slot.innerHTML = '';
-  }
+  if (isSearchMode) return;
+  renderMainView(items);
 }
 
 // === 目录信息 ===
@@ -359,22 +370,17 @@ function getValidCategories() {
   return _validCategories;
 }
 
-function renderData(data) {
-  allCategories = data.categories || [];
-  _validCategories = null;  // 数据变化，清空缓存
-  const total = data.total || 0;
-  const updateTime = data.last_update ? new Date(data.last_update * 1000).toLocaleString('zh-CN') : '';
-  if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
-  if (isSearchMode) return;
-  renderMainView();
-}
-
-function renderMainView() {
+function renderMainView(recentItems) {
   const content = document.getElementById('content');
   const validCategories = getValidCategories();
 
   let html = '';
-  html += '<div id="topVisitedSlot"></div>';
+  // 最近使用直接内联渲染，避免异步插入导致闪屏
+  if (recentItems && recentItems.length > 0) {
+    html += renderTopVisited(recentItems);
+  } else {
+    html += '<div id="topVisitedSlot"></div>';
+  }
   html += '<div class="category-grid">';
   validCategories.forEach((cat, i) => {
     const shortName = cat.category.split(' / ').pop();
@@ -394,17 +400,6 @@ function renderMainView() {
   content.innerHTML = html;
   bindContentEvents();
   loadFavicons();
-
-  // 异步填充最近使用（requestAnimationFrame 避免与主渲染争抢）
-  requestAnimationFrame(() => {
-    getRecentVisited().then(items => {
-      const slot = document.getElementById('topVisitedSlot');
-      if (slot && items.length > 0) {
-        slot.innerHTML = renderTopVisited(items);
-        loadFavicons();
-      }
-    });
-  });
 }
 
 function renderBookmarkPanel(categoryName, validCategories) {
@@ -437,18 +432,10 @@ function renderBookmarkPanel(categoryName, validCategories) {
   return html;
 }
 
-// 统一管理折叠状态：输入框聚焦 / 有内容 / 目录展开 任一为 true 则折叠
-function updateFoldState() {
-  const input = document.getElementById('searchInput');
-  const shouldFold = document.activeElement === input || input.value.trim() || activeCat;
-  document.querySelector('.container').classList.toggle('searching', shouldFold);
-}
-
 // 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
 function toggleCategory(catName) {
   activeCat = (activeCat === catName) ? null : catName;
   isSearchMode = false;
-  updateFoldState();
 
   const content = document.getElementById('content');
 
@@ -476,7 +463,6 @@ function toggleCategory(catName) {
 // 关闭书签面板
 function closeBookmarkPanel() {
   activeCat = null;
-  updateFoldState();
   const content = document.getElementById('content');
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
@@ -587,12 +573,6 @@ function setupSearch() {
   const clearBtn = document.getElementById('searchClear');
   let timer = null;
 
-  input.addEventListener('focus', updateFoldState);
-
-  input.addEventListener('blur', () => {
-    setTimeout(updateFoldState, 50);
-  });
-
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const v = input.value.trim();
@@ -600,7 +580,6 @@ function setupSearch() {
     if (!v) {
       isSearchMode = false;
       renderMainView();
-      updateFoldState();
       return;
     }
     timer = setTimeout(() => { isSearchMode = true; activeCat = null; performSearch(v); }, 200);
@@ -621,7 +600,6 @@ function setupSearch() {
     isSearchMode = false;
     activeCat = null;
     renderMainView();
-    updateFoldState();
     input.focus();
   });
 
@@ -678,7 +656,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     const updateTime = msg.data.last_update ? new Date(msg.data.last_update * 1000).toLocaleString('zh-CN') : '';
     if (updateTime) document.getElementById('updateInfo').textContent = `${total} 书签 | 更新于 ${updateTime}`;
     if (isSearchMode) return;
-    renderMainView();
+    getRecentVisited().then(items => renderMainView(items));
   }
 });
 

@@ -134,19 +134,6 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     return result
 
 
-def flatten_bookmarks(categories: List[Dict]) -> List[Dict]:
-    """将分类书签展平为单一列表"""
-    items = []
-    for cat in categories:
-        for item in cat["items"]:
-            items.append({
-                "title": item["title"],
-                "url": item["url"],
-                "category": cat["category"]
-            })
-    return items
-
-
 _pinyin_cache = {}
 
 

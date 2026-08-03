@@ -205,6 +205,7 @@ body.has-wallpaper > * {
   padding: 68px 24px 0;
   overflow-y: auto;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 .container::-webkit-scrollbar { width: 4px; }
@@ -226,20 +227,11 @@ body.has-wallpaper > * {
 [data-theme="light"] .topbar-clock { color: #2d3748; }
 [data-theme="light"] .topbar-date { color: #4a5568; }
 
-/* 搜索模式：缩小搜索框下方间距 */
-.container.searching .search-section {
-  margin-bottom: 16px;
-}
-
-.search-section {
-  transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* === 搜索框 === */
 .search-section {
   width: 100%;
   max-width: 600px;
-  margin: 6vh auto 32px;
+  margin: 6vh auto 24px;
   flex-shrink: 0;
 }
 
@@ -265,7 +257,7 @@ body.has-wallpaper > * {
   background: var(--card);
   color: var(--text);
   outline: none;
-  transition: all 0.3s;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
   backdrop-filter: blur(10px);
 }
 
@@ -368,7 +360,7 @@ body.has-wallpaper > * {
   color: #fff;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   cursor: pointer;
 }
 
@@ -481,7 +473,7 @@ body.has-wallpaper > * {
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid rgba(255,255,255,0.12);
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   user-select: none;
   white-space: nowrap;
   background: rgba(0,0,0,0.35);
@@ -557,7 +549,7 @@ body.has-wallpaper > * {
   cursor: pointer;
   color: var(--text2);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .bookmark-panel-header .panel-close:hover { background: var(--card-hover); color: var(--text); }
@@ -674,7 +666,7 @@ body.has-wallpaper > * {
   color: rgba(255,255,255,0.8);
   font-size: 14px;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   cursor: pointer;
 }
 
@@ -703,8 +695,7 @@ body.has-wallpaper > * {
 .ico-0 { color: #e74c3c; } .ico-1 { color: #e67e22; } .ico-2 { color: #f1c40f; } .ico-3 { color: #2ecc71; }
 .ico-4 { color: #1abc9c; } .ico-5 { color: #3498db; } .ico-6 { color: #9b59b6; } .ico-7 { color: #e91e63; }
 
-/* 加载/空状态 */
-.loading { text-align: center; padding: 60px; color: var(--text2); font-size: 15px; }
+/* 空状态 */
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
 /* 更新信息 - 固定底部居中 */
