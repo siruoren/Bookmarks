@@ -205,6 +205,7 @@ body.has-wallpaper > * {
   padding: 68px 24px 0;
   overflow-y: auto;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 .container::-webkit-scrollbar { width: 4px; }
@@ -256,7 +257,7 @@ body.has-wallpaper > * {
   background: var(--card);
   color: var(--text);
   outline: none;
-  transition: all 0.3s;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
   backdrop-filter: blur(10px);
 }
 
@@ -359,7 +360,7 @@ body.has-wallpaper > * {
   color: #fff;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   cursor: pointer;
 }
 
@@ -472,7 +473,7 @@ body.has-wallpaper > * {
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid rgba(255,255,255,0.12);
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   user-select: none;
   white-space: nowrap;
   background: rgba(0,0,0,0.35);
@@ -548,7 +549,7 @@ body.has-wallpaper > * {
   cursor: pointer;
   color: var(--text2);
   font-size: 14px;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .bookmark-panel-header .panel-close:hover { background: var(--card-hover); color: var(--text); }
@@ -665,7 +666,7 @@ body.has-wallpaper > * {
   color: rgba(255,255,255,0.8);
   font-size: 14px;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   cursor: pointer;
 }
 
