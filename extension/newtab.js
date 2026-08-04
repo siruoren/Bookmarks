@@ -378,7 +378,8 @@ function renderMainView(recentItems) {
   // 最近使用直接内联渲染，避免异步插入导致闪屏
   if (recentItems && recentItems.length > 0) {
     html += renderTopVisited(recentItems);
-  } else {
+  } else if (!recentItems) {
+    // 无参调用时先占位，异步填充最近使用
     html += '<div id="topVisitedSlot"></div>';
   }
   html += '<div class="category-grid">';
@@ -400,6 +401,19 @@ function renderMainView(recentItems) {
   content.innerHTML = html;
   bindContentEvents();
   loadFavicons();
+
+  // 无参调用时异步填充最近使用
+  if (!recentItems) {
+    getRecentVisited().then(items => {
+      const slot = document.getElementById('topVisitedSlot');
+      if (slot && items.length > 0) {
+        slot.outerHTML = renderTopVisited(items);
+        loadFavicons();
+      } else if (slot) {
+        slot.remove();
+      }
+    });
+  }
 }
 
 function renderBookmarkPanel(categoryName, validCategories) {
