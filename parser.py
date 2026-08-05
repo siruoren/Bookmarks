@@ -1,5 +1,6 @@
-"""解析Netscape Bookmark HTML文件"""
+"""解析书签文件（支持 Netscape HTML 和 XBEL XML 格式）"""
 import re
+import xml.etree.ElementTree as ET
 from html import unescape
 from typing import List, Dict
 from pypinyin import lazy_pinyin, Style
@@ -8,29 +9,116 @@ from pypinyin import lazy_pinyin, Style
 def parse_bookmarks(file_path: str) -> List[Dict]:
     """解析书签文件，返回分类书签列表
 
+    自动检测文件格式：Netscape HTML 或 XBEL XML
+
     Returns:
         [{"category": "视频", "items": [{"title": "...", "url": "..."}]}]
     """
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
+    # 检测格式：包含 <xbel 标签则走 XBEL 解析，否则走 Netscape HTML 解析
+    # 注意：有些文件扩展名为 .xbel 但实际是 HTML 格式，应以内容为准
+    if "<xbel" in content[:2000].lower():
+        return _parse_xbel(content)
+    return _parse_netscape_html(content)
+
+
+def _parse_xbel(content: str) -> List[Dict]:
+    """解析 XBEL XML 格式书签文件"""
     result = []
-    # 用栈跟踪当前层级分类名
+    root_bookmarks = []
+
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        # 尝试去掉 XML 声明再解析
+        content_cleaned = re.sub(r'^<\?xml[^?]*\?>', '', content, count=1).strip()
+        try:
+            root = ET.fromstring(content_cleaned)
+        except ET.ParseError:
+            return []
+
+    def parse_folder(elem, path_stack):
+        items = []
+        for child in elem:
+            tag = child.tag
+            # 只取标签名，忽略命名空间
+            if "}" in tag:
+                tag = tag.split("}", 1)[1]
+
+            if tag == "bookmark":
+                href = child.get("href", "")
+                title_elem = child.find("title")
+                title = title_elem.text.strip() if title_elem is not None and title_elem.text else href
+                if href:
+                    items.append({"title": title, "url": href})
+
+            elif tag == "folder":
+                title_elem = child.find("title")
+                folder_name = title_elem.text.strip() if title_elem is not None and title_elem.text else "未命名"
+                new_stack = path_stack + [folder_name]
+                parse_folder(child, new_stack)
+
+            elif tag == "separator":
+                continue
+
+        if items and path_stack:
+            result.append({
+                "category": " / ".join(path_stack),
+                "items": items
+            })
+        elif items and not path_stack:
+            root_bookmarks.extend(items)
+
+    # XBEL 根节点下的顶层 folder/bookmark
+    parse_folder(root, [])
+
+    # 合并重复分类
+    merged = {}
+    for cat in result:
+        key = cat["category"]
+        if key in merged:
+            merged[key]["items"].extend(cat["items"])
+        else:
+            merged[key] = cat
+    result = list(merged.values())
+
+    # 补齐缺失的父级目录
+    all_paths = set()
+    for cat in result:
+        parts = cat["category"].split(" / ")
+        for i in range(1, len(parts) + 1):
+            all_paths.add(" / ".join(parts[:i]))
+    existing = {cat["category"] for cat in result}
+    for path in all_paths - existing:
+        result.append({"category": path, "items": []})
+
+    # 排序
+    result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
+
+    if root_bookmarks:
+        result.append({"category": "__root_bookmarks__", "items": root_bookmarks})
+
+    return result
+
+
+def _parse_netscape_html(content: str) -> List[Dict]:
+    """解析 Netscape Bookmark HTML 格式文件"""
+    result = []
     category_stack = []
-    # 匹配 <DT><H3...>分类名</H3> 和 <DT><A HREF="url"...>标题</A>
+    # 匹配 <DT><H3...>分类名</H3> 和 <DT><A ...HREF="url"...>标题</A>
     h3_pattern = re.compile(r'<DT><H3[^>]*>(.*?)</H3>', re.IGNORECASE)
-    a_pattern = re.compile(r'<DT><A\s+HREF="([^"]+)"[^>]*>(.*?)</A>', re.IGNORECASE)
+    # HREF 不要求是第一个属性，兼容属性顺序不同的格式
+    a_pattern = re.compile(r'<DT><A\s+[^>]*?HREF="([^"]+)"[^>]*>(.*?)</A>', re.IGNORECASE)
     dl_open_pattern = re.compile(r'<DL>', re.IGNORECASE)
     dl_close_pattern = re.compile(r'</DL>', re.IGNORECASE)
 
     pos = 0
-    # 当前分类下的书签暂存
     current_items = []
-    # 根目录下的书签（没有H3分类包裹的根级书签）
     root_bookmarks = []
 
     while pos < len(content):
-        # 查找下一个关键标签
         next_h3 = h3_pattern.search(content, pos)
         next_a = a_pattern.search(content, pos)
         next_dl_open = dl_open_pattern.search(content, pos)
@@ -53,7 +141,6 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
         _, tag_type, match = candidates[0]
 
         if tag_type == 'h3':
-            # 保存之前分类的书签
             if current_items and category_stack:
                 result.append({
                     "category": " / ".join(category_stack),
@@ -68,7 +155,6 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
             pos = match.end()
 
         elif tag_type == 'dl_close':
-            # 保存当前分类书签
             if current_items and category_stack:
                 result.append({
                     "category": " / ".join(category_stack),
@@ -82,54 +168,42 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
         elif tag_type == 'a':
             url = unescape(match.group(1).strip())
             title = unescape(match.group(2).strip())
-            
-            # 如果在根目录下（没有分类），添加到根书签列表
             if not category_stack:
                 root_bookmarks.append({"title": title, "url": url})
             else:
                 current_items.append({"title": title, "url": url})
             pos = match.end()
 
-    # 处理末尾残留
     if current_items and category_stack:
         result.append({
             "category": " / ".join(category_stack),
             "items": current_items
         })
 
-    # 合并重复的分类路径
-    merged_result = {}
+    # 合并重复分类
+    merged = {}
     for cat in result:
-        category_path = cat["category"]
-        if category_path in merged_result:
-            # 合并书签项
-            merged_result[category_path]["items"].extend(cat["items"])
+        key = cat["category"]
+        if key in merged:
+            merged[key]["items"].extend(cat["items"])
         else:
-            merged_result[category_path] = cat
-    
-    # 转换回列表格式
-    result = list(merged_result.values())
+            merged[key] = cat
+    result = list(merged.values())
 
-    # 补齐缺失的父级目录（如 Other Bookmarks 只有子文件夹没有直接书签时）
+    # 补齐缺失的父级目录
     all_paths = set()
     for cat in result:
         parts = cat["category"].split(" / ")
         for i in range(1, len(parts) + 1):
             all_paths.add(" / ".join(parts[:i]))
-
-    existing_paths = {cat["category"] for cat in result}
-    for path in all_paths - existing_paths:
+    existing = {cat["category"] for cat in result}
+    for path in all_paths - existing:
         result.append({"category": path, "items": []})
 
-    # 按目录层级升序排序，同层级下按名称排序
     result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
 
-    # 将根目录书签作为特殊字段添加到结果中
     if root_bookmarks:
-        result.append({
-            "category": "__root_bookmarks__",
-            "items": root_bookmarks
-        })
+        result.append({"category": "__root_bookmarks__", "items": root_bookmarks})
 
     return result
 
@@ -163,7 +237,6 @@ def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
             if keyword in title.lower() or keyword in url:
                 matched_items.append(item)
                 continue
-            # 拼音全拼 + 首字母匹配
             full_py, initial_py = _get_pinyin_keys(title)
             if keyword in full_py or keyword in initial_py:
                 matched_items.append(item)
