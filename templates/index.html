@@ -93,6 +93,17 @@ body.has-wallpaper > * {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-center {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* === 天气组件 === */
@@ -199,19 +210,27 @@ body.has-wallpaper > * {
 
 /* === 顶栏时钟和日期 === */
 .topbar-clock {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text);
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .topbar-date {
   font-size: 12px;
   color: var(--text2);
+  text-align: right;
+}
+
+.topbar-weekday {
+  font-size: 12px;
+  color: var(--text2);
+  text-align: left;
 }
 
 [data-theme="light"] .topbar-clock { color: #2d3748; }
 [data-theme="light"] .topbar-date { color: #4a5568; }
+[data-theme="light"] .topbar-weekday { color: #4a5568; }
 
 /* === 搜索框 === */
 .search-section {
@@ -728,7 +747,7 @@ body.has-wallpaper > * {
   .category-grid { gap: 4px 3px; }
   .cat-card { padding: 4px 8px; font-size: 12px; }
   .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-  .topbar-left { gap: 8px; }
+  .topbar-left, .topbar-center { gap: 8px; }
   .weather-city { display: none; }
 }
 
@@ -744,14 +763,17 @@ body.has-wallpaper > * {
 
 <div class="topbar">
   <div class="topbar-left">
-    <div class="topbar-clock" id="clock"></div>
-    <div class="topbar-date" id="date"></div>
     <div class="weather-widget" id="weather">
       <span class="weather-icon" id="weatherIcon">🌤️</span>
       <span class="weather-temp" id="weatherTemp">--°</span>
       <span class="weather-city" id="weatherCity"></span>
       <input type="text" class="weather-city-input" id="weatherCityInput" placeholder="输入城市">
     </div>
+  </div>
+  <div class="topbar-center">
+    <div class="topbar-date" id="date"></div>
+    <div class="topbar-clock" id="clock"></div>
+    <div class="topbar-weekday" id="weekday"></div>
   </div>
   <div class="topbar-right">
     <div class="theme-toggle" id="themeToggle" title="切换主题">
@@ -809,9 +831,12 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('clock').textContent = `${h}:${m}`;
 
-  const lunar = getLunarInfo(now);
-  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'});
+  const {lunar, term} = getLunarInfo(now);
+  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric'});
   document.getElementById('date').textContent = lunar ? `${dateStr} ${lunar}` : dateStr;
+
+  const weekday = now.toLocaleDateString('zh-CN', {weekday: 'short'});
+  document.getElementById('weekday').textContent = term ? `${weekday} ${term}` : weekday;
 }
 
 function getLunarInfo(date) {
@@ -826,10 +851,11 @@ function getLunarInfo(date) {
   const y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
 
   // 节气检查
+  let termName = '';
   const termIdx = m * 2 + (d > 15 ? 1 : 0);
   if (termIdx < terms.length) {
     const termDates = [6,20,4,19,6,21,5,20,6,21,6,22,7,23,7,23,8,23,8,23,7,22,7,22];
-    if (Math.abs(d - termDates[termIdx]) <= 1) return terms[termIdx];
+    if (Math.abs(d - termDates[termIdx]) <= 1) termName = terms[termIdx];
   }
 
   const SPRINGS = {
@@ -854,7 +880,8 @@ function getLunarInfo(date) {
       diffDays = Math.floor((date - springDate) / 86400000);
     } else {
       const dayOfYear = Math.floor((date - new Date(y, 0, 0)) / 86400000);
-      return lunarDays[(dayOfYear + 15) % 30] || '';
+      const lunarDay = lunarDays[(dayOfYear + 15) % 30] || '';
+      return { lunar: lunarDay, term: termName };
     }
   }
 
@@ -883,7 +910,7 @@ function getLunarInfo(date) {
   }
 
   const dayName = lunarDays[remaining] || '';
-  return monthName + dayName;
+  return { lunar: monthName + dayName, term: termName };
 }
 
 // === 主题 ===
