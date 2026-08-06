@@ -23,6 +23,7 @@ zip -r "$DIST_DIR/$PKG_NAME" \
   newtab.html newtab.css newtab.js \
   options.html options.css options.js \
   background.js \
+  pinyin.js \
   icons/ \
   -x "*.DS_Store" "__MACOSX/*"
 

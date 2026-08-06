@@ -16,9 +16,12 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('clock').textContent = `${h}:${m}`;
 
-  const lunar = getLunarInfo(now);
-  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'});
+  const {lunar, term} = getLunarInfo(now);
+  const dateStr = now.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric'});
   document.getElementById('date').textContent = lunar ? `${dateStr} ${lunar}` : dateStr;
+
+  const weekday = now.toLocaleDateString('zh-CN', {weekday: 'short'});
+  document.getElementById('weekday').textContent = term ? `${weekday} ${term}` : weekday;
 }
 
 function getLunarInfo(date) {
@@ -33,10 +36,11 @@ function getLunarInfo(date) {
   const y = date.getFullYear(), m = date.getMonth(), d = date.getDate();
 
   // 节气检查
+  let termName = '';
   const termIdx = m * 2 + (d > 15 ? 1 : 0);
   if (termIdx < terms.length) {
     const termDates = [6,20,4,19,6,21,5,20,6,21,6,22,7,23,7,23,8,23,8,23,7,22,7,22];
-    if (Math.abs(d - termDates[termIdx]) <= 1) return terms[termIdx];
+    if (Math.abs(d - termDates[termIdx]) <= 1) termName = terms[termIdx];
   }
 
   // 各年春节公历日期和闰月序号（0=无闰月）
@@ -64,7 +68,8 @@ function getLunarInfo(date) {
     } else {
       // 无数据年份 fallback
       const dayOfYear = Math.floor((date - new Date(y, 0, 0)) / 86400000);
-      return lunarDays[(dayOfYear + 15) % 30] || '';
+      const lunarDay = lunarDays[(dayOfYear + 15) % 30] || '';
+      return { lunar: lunarDay, term: termName };
     }
   }
 
@@ -95,7 +100,7 @@ function getLunarInfo(date) {
   }
 
   const dayName = lunarDays[remaining] || '';
-  return monthName + dayName;
+  return { lunar: monthName + dayName, term: termName };
 }
 
 // === 主题 ===
