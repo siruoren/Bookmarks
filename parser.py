@@ -1,9 +1,33 @@
 """解析书签文件（支持 Netscape HTML 和 XBEL XML 格式）"""
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from html import unescape
 from typing import List, Dict
 from pypinyin import lazy_pinyin, Style
+
+
+def _sort_key_char(ch: str) -> tuple:
+    """单字符排序键：数字 < 字母 < 汉字 < 其他"""
+    if ch.isdigit():
+        return (0, ch)
+    if ch.isascii() and ch.isalpha():
+        return (1, ch.lower())
+    if '\u4e00' <= ch <= '\u9fff':
+        return (2, ch)
+    return (3, ch)
+
+
+def _category_sort_key(category: str) -> tuple:
+    """分类路径排序键：先按层级，再按数字/字母/汉字顺序"""
+    depth = category.count(" / ")
+    # 拆分每段路径，逐字符生成排序键
+    parts = category.split(" / ")
+    char_keys = tuple(
+        tuple(_sort_key_char(ch) for ch in part)
+        for part in parts
+    )
+    return (depth, char_keys)
 
 
 def parse_bookmarks(file_path: str) -> List[Dict]:
@@ -95,7 +119,7 @@ def _parse_xbel(content: str) -> List[Dict]:
         result.append({"category": path, "items": []})
 
     # 排序
-    result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
+    result.sort(key=lambda cat: _category_sort_key(cat["category"]))
 
     if root_bookmarks:
         result.append({"category": "__root_bookmarks__", "items": root_bookmarks})
@@ -200,7 +224,7 @@ def _parse_netscape_html(content: str) -> List[Dict]:
     for path in all_paths - existing:
         result.append({"category": path, "items": []})
 
-    result.sort(key=lambda cat: (cat["category"].count(" / "), cat["category"]))
+    result.sort(key=lambda cat: _category_sort_key(cat["category"]))
 
     if root_bookmarks:
         result.append({"category": "__root_bookmarks__", "items": root_bookmarks})
