@@ -334,7 +334,8 @@ async function getRecentVisited() {
   });
   return Object.entries(result.visitCounts)
     .map(([url, data]) => ({ url, title: data.title, lastVisit: data.lastVisit || 0 }))
-    .sort((a, b) => b.lastVisit - a.lastVisit);
+    .sort((a, b) => b.lastVisit - a.lastVisit)
+    .slice(0, 18);
 }
 
 function renderTopVisited(items) {
