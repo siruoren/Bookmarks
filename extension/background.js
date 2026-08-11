@@ -32,7 +32,7 @@ async function initAlarm() {
 function getConfig() {
   return new Promise(resolve => {
     chrome.storage.local.get({
-      serverUrl: '',
+      serverUrl: 'http://192.168.31.120:5005',
       apiPassword: '',
       updateInterval: DEFAULT_INTERVAL_MIN
     }, resolve);

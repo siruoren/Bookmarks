@@ -340,15 +340,10 @@ body.has-wallpaper > * {
 
 .top-visited-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
   padding: 10px 0 4px 0;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
 }
-
-.top-visited-grid::-webkit-scrollbar { height: 3px; }
-.top-visited-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .top-visited-item {
   position: relative;

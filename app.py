@@ -35,7 +35,7 @@ last_update: float = 0
 git_sync: Optional[GitSync] = None
 scheduler: Optional[Scheduler] = None
 recent_items: Dict[str, List[Dict]] = {}  # 改为按设备ID存储的字典（缓存）
-recent_max: int = 20
+recent_max: int = 18
 recent_data_dir: str = "./data/recent"
 # 文件修改时间跟踪
 bookmark_file_mtimes: Dict[str, float] = {}

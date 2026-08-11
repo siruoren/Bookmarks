@@ -1,7 +1,7 @@
 // 设置页面逻辑
 
 const DEFAULTS = {
-  serverUrl: '',
+  serverUrl: 'http://192.168.31.120:5005',
   apiPassword: '',
   updateInterval: 5,
   enableWallpaper: true,
