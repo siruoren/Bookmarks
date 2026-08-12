@@ -260,6 +260,22 @@ function toFetchUrl(url) {
   return u;
 }
 
+// 通过 background 代理 fetch（Firefox MV3 扩展页面直接 fetch 会 NetworkError）
+function proxyFetch(url, options) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: 'proxyFetch', url, options }, resp => {
+      if (!resp) { reject(new Error('background 无响应')); return; }
+      if (resp.error) { reject(new Error(resp.error)); return; }
+      resolve({
+        ok: resp.ok,
+        status: resp.status,
+        json: () => Promise.resolve(JSON.parse(resp.body)),
+        text: () => Promise.resolve(resp.body)
+      });
+    });
+  });
+}
+
 async function fetchFromBackend() {
   const config = await new Promise(resolve => chrome.storage.local.get(['serverUrl', 'apiPassword'], resolve));
   if (!config.serverUrl) return null;
@@ -267,7 +283,7 @@ async function fetchFromBackend() {
   const serverUrl = toFetchUrl(config.serverUrl);
   const headers = config.apiPassword ? { 'X-API-Key': config.apiPassword } : {};
   try {
-    const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
+    const resp = await proxyFetch(`${serverUrl}/api/bookmarks`, { headers });
     if (resp.ok) {
       const data = await resp.json();
       data._fetchTime = Date.now();

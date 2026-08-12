@@ -130,4 +130,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     });
     return true;
   }
+  // fetch 代理：扩展页面通过 background 发起请求（Firefox MV3 需要此方式绕过 CORS）
+  if (msg.type === 'proxyFetch') {
+    const { url, options } = msg;
+    fetch(url, options || {}).then(async resp => {
+      const body = await resp.text();
+      sendResponse({ ok: resp.ok, status: resp.status, body });
+    }).catch(e => {
+      sendResponse({ ok: false, status: 0, error: e.message });
+    });
+    return true;
+  }
 });

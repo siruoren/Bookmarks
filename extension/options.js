@@ -18,6 +18,22 @@ function toFetchUrl(url) {
   return u;
 }
 
+// 通过 background 代理 fetch（Firefox MV3 扩展页面直接 fetch 会 NetworkError）
+function proxyFetch(url, options) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: 'proxyFetch', url, options }, resp => {
+      if (!resp) { reject(new Error('background 无响应')); return; }
+      if (resp.error) { reject(new Error(resp.error)); return; }
+      resolve({
+        ok: resp.ok,
+        status: resp.status,
+        json: () => Promise.resolve(JSON.parse(resp.body)),
+        text: () => Promise.resolve(resp.body)
+      });
+    });
+  });
+}
+
 // 验证地址格式是否合法（支持 tcp/http/https/无协议）
 function isValidUrl(url) {
   const httpUrl = toFetchUrl(url);
@@ -92,18 +108,12 @@ async function testConnection() {
   }
 
   try {
-    // 先测试轻量接口
-    const resp = await fetch(`${fetchUrl}/api/update_time`, {
-      headers,
-      signal: AbortSignal.timeout(8000)
-    });
+    // 先测试轻量接口（通过 background 代理）
+    const resp = await proxyFetch(`${fetchUrl}/api/update_time`, { headers });
 
     if (resp.ok) {
       // 再获取书签数量
-      const bmResp = await fetch(`${fetchUrl}/api/bookmarks`, {
-        headers,
-        signal: AbortSignal.timeout(15000)
-      });
+      const bmResp = await proxyFetch(`${fetchUrl}/api/bookmarks`, { headers });
       if (bmResp.ok) {
         const data = await bmResp.json();
         showStatus(`连接成功! 共 ${data.total || 0} 个书签`, 'success');
@@ -122,7 +132,7 @@ async function testConnection() {
   } catch (e) {
     if (e.name === 'TimeoutError') {
       showStatus('连接超时，请检查地址是否正确、服务是否运行', 'error');
-    } else if (e.message && e.message.includes('Failed to fetch')) {
+    } else if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
       showStatus('网络错误：请检查地址是否可达，若使用 FRP 隧道请确认代理类型为 http', 'error');
     } else {
       showStatus(`连接失败: ${e.message}`, 'error');

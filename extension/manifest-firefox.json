@@ -13,7 +13,7 @@
     "newtab": "newtab.html"
   },
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["background.js", "background-firefox.js"]
   },
   "options_ui": {
     "page": "options.html",
@@ -21,9 +21,10 @@
   },
   "permissions": [
     "storage",
-    "alarms"
-  ],
-  "host_permissions": [
+    "alarms",
+    "tabs",
+    "webRequest",
+    "webNavigation",
     "<all_urls>"
   ],
   "icons": {

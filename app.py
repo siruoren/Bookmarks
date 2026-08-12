@@ -38,6 +38,13 @@ def add_cors_headers(response):
     return response
 
 
+@app.route("/<path:path>", methods=["OPTIONS"])
+@app.route("/", methods=["OPTIONS"])
+def handle_options(path=""):
+    """处理 CORS 预检请求（Firefox 发送 OPTIONS）"""
+    return "", 204
+
+
 # 全局状态
 bookmarks_data: List[Dict] = []
 last_update: float = 0
