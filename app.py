@@ -200,8 +200,20 @@ def refresh_bookmarks() -> bool:
 
     logger.info("检测到书签文件变更，开始解析")
 
+    # 有任何变更时，重新解析所有书签文件（包括未变更的 xbel/html）
+    # 因为需要与 txt 合并，不能只解析变更的部分
+    all_bookmark_files = []
+    for bf in bookmark_files:
+        fpath = None
+        if git_sync:
+            fpath = git_sync.get_file_path(bf)
+        if not fpath and os.path.isfile(bf):
+            fpath = bf
+        if fpath and os.path.isfile(fpath):
+            all_bookmark_files.append(fpath)
+
     new_data = []
-    for fpath in files_to_parse:
+    for fpath in all_bookmark_files:
         try:
             data = parse_bookmarks(fpath)
             new_data.extend(data)
