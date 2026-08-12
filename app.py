@@ -172,28 +172,27 @@ def refresh_bookmarks() -> bool:
                 has_changes = True
                 files_to_parse.append(fpath)
 
-    # 检查 bookmarks 目录下的 txt 文件
+    # 检查仓库 bookmarks 目录下的 txt 文件
     txt_files_to_parse = []
-    bookmarks_dir = None
-    if git_sync:
-        bookmarks_dir = os.path.join(git_sync.local_dir, "bookmarks")
-    if not bookmarks_dir or not os.path.isdir(bookmarks_dir):
-        bookmarks_dir = "./bookmarks"
+    all_txt_files = []
+    bookmarks_dir = os.path.join(git_sync.local_dir, "bookmarks") if git_sync else ""
 
     if os.path.isdir(bookmarks_dir):
-        for fname in os.listdir(bookmarks_dir):
+        logger.info("扫描仓库 TXT 书签目录: %s", bookmarks_dir)
+        for fname in sorted(os.listdir(bookmarks_dir)):
             if fname.endswith('.txt'):
                 txt_fpath = os.path.join(bookmarks_dir, fname)
+                all_txt_files.append(txt_fpath)
                 try:
                     current_mtime = os.path.getmtime(txt_fpath)
                     if txt_fpath not in bookmark_file_mtimes or bookmark_file_mtimes[txt_fpath] != current_mtime:
                         has_changes = True
-                        txt_files_to_parse.append(txt_fpath)
                         bookmark_file_mtimes[txt_fpath] = current_mtime
                 except Exception as e:
                     logger.warning("获取文件修改时间失败 %s: %s", txt_fpath, e)
                     has_changes = True
-                    txt_files_to_parse.append(txt_fpath)
+        if all_txt_files:
+            logger.info("发现 %d 个 TXT 文件", len(all_txt_files))
 
     if not has_changes:
         logger.info("书签文件无变更，跳过解析")
@@ -210,8 +209,8 @@ def refresh_bookmarks() -> bool:
         except Exception as e:
             logger.error("解析书签文件失败 %s: %s", fpath, e)
 
-    # 解析 txt 文件并合并
-    for fpath in txt_files_to_parse:
+    # 解析 txt 文件
+    for fpath in all_txt_files:
         try:
             data = parse_bookmarks(fpath)
             new_data.extend(data)
@@ -230,7 +229,7 @@ def refresh_bookmarks() -> bool:
                 merged[key] = cat
         bookmarks_data = list(merged.values())
         last_update = time.time()
-        logger.info("书签数据已更新, 共 %d 个分类", len(bookmarks_data))
+        logger.info("书签数据已更新(含TXT合并), 共 %d 个分类", len(bookmarks_data))
     
     return True
 
