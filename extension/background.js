@@ -92,8 +92,8 @@ async function syncBookmarks(force = false) {
     data._fetchTime = Date.now();
     chrome.storage.local.set({ bookmarksCache: data });
 
-    // 通知所有打开的新标签页
-    chrome.runtime.sendMessage({ type: 'bookmarksUpdated', data }).catch(() => {});
+    // 通知所有打开的新标签页（Firefox 无接收端时会抛错，需 catch）
+    try { chrome.runtime.sendMessage({ type: 'bookmarksUpdated', data }).catch(() => {}); } catch (e) {}
 
     console.log(`[Bookmarks] 同步成功: ${data.total || 0} 个书签`);
 
