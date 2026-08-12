@@ -1,4 +1,4 @@
-"""解析书签文件（支持 Netscape HTML 和 XBEL XML 格式）"""
+"""解析书签文件（支持 Netscape HTML、XBEL XML 和 TXT 格式）"""
 import re
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -33,7 +33,7 @@ def _category_sort_key(category: str) -> tuple:
 def parse_bookmarks(file_path: str) -> List[Dict]:
     """解析书签文件，返回分类书签列表
 
-    自动检测文件格式：Netscape HTML 或 XBEL XML
+    自动检测文件格式：Netscape HTML、XBEL XML 或 TXT
 
     Returns:
         [{"category": "视频", "items": [{"title": "...", "url": "..."}]}]
@@ -41,11 +41,51 @@ def parse_bookmarks(file_path: str) -> List[Dict]:
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
-    # 检测格式：包含 <xbel 标签则走 XBEL 解析，否则走 Netscape HTML 解析
-    # 注意：有些文件扩展名为 .xbel 但实际是 HTML 格式，应以内容为准
-    if "<xbel" in content[:2000].lower():
+    # 检测格式：包含 <xbel 标签则走 XBEL 解析，HTML 标签走 Netscape 解析，否则走 TXT 解析
+    low = content[:2000].lower()
+    if "<xbel" in low:
         return _parse_xbel(content)
-    return _parse_netscape_html(content)
+    if "<dl>" in low or "<h3" in low or "<a " in low:
+        return _parse_netscape_html(content)
+    return _parse_txt(content, file_path)
+
+
+def _parse_txt(content: str, file_path: str = "") -> List[Dict]:
+    """解析 TXT 格式书签文件
+
+    文件名作为目录名，排除 # 开头的行（注释），其余行为书签条目：
+    - 以空格分隔，最后一位为 URL，前面的都是书签名
+    - 书签名中的空格以 _ 替换
+
+    Returns:
+        [{"category": "工具", "items": [{"title": "...", "url": "..."}]}]
+    """
+    import os
+
+    # 文件名（去扩展名）作为目录名
+    category = os.path.splitext(os.path.basename(file_path))[0] if file_path else "未命名"
+
+    items = []
+    for line in content.splitlines():
+        line = line.strip()
+        # 排除空行和 # 开头的注释行
+        if not line or line.startswith('#'):
+            continue
+        # 以空格分隔，最后一位为 URL
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        url = parts[-1]
+        # 前面的部分为书签名，空格以 _ 替换
+        title = '_'.join(parts[:-1])
+        if not url.startswith('http://') and not url.startswith('https://') and not url.startswith('ftp://'):
+            continue
+        items.append({"title": title, "url": url})
+
+    if not items:
+        return []
+
+    return [{"category": category, "items": items}]
 
 
 def _parse_xbel(content: str) -> List[Dict]:

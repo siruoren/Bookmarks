@@ -10,6 +10,18 @@ function toFetchUrl(url) {
   return u;
 }
 
+// 统一请求函数
+function httpGet(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    fetch(url, { headers }).then(async resp => {
+      const body = await resp.text();
+      resolve({ ok: resp.ok, status: resp.status, body });
+    }).catch(e => {
+      reject(e);
+    });
+  });
+}
+
 // 安装/启动时初始化
 chrome.runtime.onInstalled.addListener(() => { initAlarm(); syncBookmarks(); });
 chrome.runtime.onStartup.addListener(() => { initAlarm(); syncBookmarks(); });
@@ -58,10 +70,7 @@ async function syncBookmarks(force = false) {
       });
       const localUpdateTime = cached?.last_update || 0;
 
-      const timeResp = await fetch(`${serverUrl}/api/update_time`, {
-        headers,
-        signal: AbortSignal.timeout(8000)
-      });
+      const timeResp = await httpGet(`${serverUrl}/api/update_time`, headers);
 
       if (!timeResp.ok) {
         console.error(timeResp.status === 401
@@ -70,7 +79,7 @@ async function syncBookmarks(force = false) {
         return;
       }
 
-      const remoteUpdateTime = (await timeResp.json()).last_update || 0;
+      const remoteUpdateTime = (JSON.parse(timeResp.body)).last_update || 0;
 
       if (localUpdateTime > 0 && localUpdateTime >= remoteUpdateTime) {
         console.log(`[Bookmarks] 数据无更新，跳过同步`);
@@ -79,7 +88,7 @@ async function syncBookmarks(force = false) {
     }
 
     console.log(`[Bookmarks] ${force ? '强制全量同步' : '增量同步'}中...`);
-    const resp = await fetch(`${serverUrl}/api/bookmarks`, { headers });
+    const resp = await httpGet(`${serverUrl}/api/bookmarks`, headers);
 
     if (!resp.ok) {
       console.error(resp.status === 401
@@ -88,12 +97,12 @@ async function syncBookmarks(force = false) {
       return;
     }
 
-    const data = await resp.json();
+    const data = JSON.parse(resp.body);
     data._fetchTime = Date.now();
     chrome.storage.local.set({ bookmarksCache: data });
 
     // 通知所有打开的新标签页
-    chrome.runtime.sendMessage({ type: 'bookmarksUpdated', data }).catch(() => {});
+    try { chrome.runtime.sendMessage({ type: 'bookmarksUpdated', data }).catch(() => {}); } catch (e) {}
 
     console.log(`[Bookmarks] 同步成功: ${data.total || 0} 个书签`);
 
@@ -127,6 +136,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           total: cache?.total || 0
         });
       });
+    });
+    return true;
+  }
+  // fetch 代理：扩展页面通过 background 发起请求
+  if (msg.type === 'proxyFetch') {
+    const { url, options } = msg;
+    const headers = (options && options.headers) || {};
+    httpGet(url, headers).then(result => {
+      sendResponse(result);
+    }).catch(e => {
+      sendResponse({ ok: false, status: 0, error: e.message });
     });
     return true;
   }

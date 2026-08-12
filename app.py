@@ -29,6 +29,22 @@ def check_api_key():
         return jsonify({"error": "Unauthorized", "message": "API Key 不正确"}), 401
 
 
+@app.after_request
+def add_cors_headers(response):
+    """添加 CORS 响应头，支持浏览器插件跨域请求（Firefox 需要）"""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "X-API-Key, Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
+@app.route("/<path:path>", methods=["OPTIONS"])
+@app.route("/", methods=["OPTIONS"])
+def handle_options(path=""):
+    """处理 CORS 预检请求（Firefox 发送 OPTIONS）"""
+    return "", 204
+
+
 # 全局状态
 bookmarks_data: List[Dict] = []
 last_update: float = 0
@@ -117,12 +133,12 @@ def get_device_recent(device_id: str) -> List[Dict]:
 
 def refresh_bookmarks() -> bool:
     """刷新书签数据(从git同步并重新解析)
-    
+
     Returns:
         bool: 是否执行了实际的解析更新
     """
     global bookmarks_data, last_update, bookmark_file_mtimes
-    
+
     if git_sync:
         try:
             git_sync.sync()
@@ -131,18 +147,18 @@ def refresh_bookmarks() -> bool:
 
     config = getattr(app, "config_data", {})
     bookmark_files = config.get("git", {}).get("bookmark_files", [])
-    
+
     # 检查文件是否有变更
     has_changes = False
     files_to_parse = []
-    
+
     for bf in bookmark_files:
         fpath = None
         if git_sync:
             fpath = git_sync.get_file_path(bf)
         if not fpath and os.path.isfile(bf):
             fpath = bf
-        
+
         if fpath and os.path.isfile(fpath):
             try:
                 current_mtime = os.path.getmtime(fpath)
@@ -155,13 +171,35 @@ def refresh_bookmarks() -> bool:
                 # 无法获取修改时间时，默认需要解析
                 has_changes = True
                 files_to_parse.append(fpath)
-    
+
+    # 检查仓库 bookmarks 目录下的 txt 文件
+    txt_files_to_parse = []
+    all_txt_files = []
+    bookmarks_dir = os.path.join(git_sync.local_dir, "bookmarks") if git_sync else ""
+
+    if os.path.isdir(bookmarks_dir):
+        logger.info("扫描仓库 TXT 书签目录: %s", bookmarks_dir)
+        for fname in sorted(os.listdir(bookmarks_dir)):
+            if fname.endswith('.txt'):
+                txt_fpath = os.path.join(bookmarks_dir, fname)
+                all_txt_files.append(txt_fpath)
+                try:
+                    current_mtime = os.path.getmtime(txt_fpath)
+                    if txt_fpath not in bookmark_file_mtimes or bookmark_file_mtimes[txt_fpath] != current_mtime:
+                        has_changes = True
+                        bookmark_file_mtimes[txt_fpath] = current_mtime
+                except Exception as e:
+                    logger.warning("获取文件修改时间失败 %s: %s", txt_fpath, e)
+                    has_changes = True
+        if all_txt_files:
+            logger.info("发现 %d 个 TXT 文件", len(all_txt_files))
+
     if not has_changes:
         logger.info("书签文件无变更，跳过解析")
         return False
-    
+
     logger.info("检测到书签文件变更，开始解析")
-    
+
     new_data = []
     for fpath in files_to_parse:
         try:
@@ -171,10 +209,27 @@ def refresh_bookmarks() -> bool:
         except Exception as e:
             logger.error("解析书签文件失败 %s: %s", fpath, e)
 
+    # 解析 txt 文件
+    for fpath in all_txt_files:
+        try:
+            data = parse_bookmarks(fpath)
+            new_data.extend(data)
+            logger.info("解析TXT书签文件: %s, 共 %d 个分类", fpath, len(data))
+        except Exception as e:
+            logger.error("解析TXT书签文件失败 %s: %s", fpath, e)
+
+    # 合并重复分类（txt 与 xml 中同名目录合并条目）
     if new_data:
-        bookmarks_data = new_data
+        merged = {}
+        for cat in new_data:
+            key = cat["category"]
+            if key in merged:
+                merged[key]["items"].extend(cat["items"])
+            else:
+                merged[key] = cat
+        bookmarks_data = list(merged.values())
         last_update = time.time()
-        logger.info("书签数据已更新, 共 %d 个分类", len(bookmarks_data))
+        logger.info("书签数据已更新(含TXT合并), 共 %d 个分类", len(bookmarks_data))
     
     return True
 
