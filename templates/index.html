@@ -453,8 +453,6 @@ body.has-wallpaper > * {
   max-width: 1200px;
   flex: 1;
   padding-bottom: 48px;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 600px;
 }
 
 /* === 目录列表（紧凑文字条目 + 毛玻璃） === */
@@ -516,7 +514,6 @@ body.has-wallpaper > * {
 .bookmark-panel {
   margin-bottom: 28px;
   animation: slideDown 0.25s ease;
-  will-change: transform, opacity;
 }
 
 @keyframes slideDown {
@@ -575,7 +572,6 @@ body.has-wallpaper > * {
   transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  contain: layout style;
 }
 
 [data-theme="light"] .bookmark-item {
@@ -711,7 +707,6 @@ body.has-wallpaper > * {
   padding: 8px 0 12px;
   z-index: 50;
   pointer-events: none;
-  background: linear-gradient(transparent, var(--bg));
 }
 
 /* Toast */
@@ -719,17 +714,24 @@ body.has-wallpaper > * {
   position: fixed;
   top: 60px;
   left: 50%;
-  transform: translateX(-50%) translateY(-100px);
+  transform: translateX(-50%);
   padding: 10px 24px;
   border-radius: 8px;
   background: rgba(0,0,0,0.8);
   color: #fff;
   font-size: 13px;
   z-index: 1000;
-  transition: transform 0.3s;
+  transition: transform 0.3s, opacity 0.3s;
   backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
 
 [data-theme="light"] .toast {
   background: rgba(0,0,0,0.75);
@@ -1209,7 +1211,8 @@ function renderBookmarkPanel(categoryName, validCategories) {
 }
 
 function toggleCategory(catName) {
-  activeCat = (activeCat === catName) ? null : catName;
+  const wasActive = activeCat === catName;
+  activeCat = wasActive ? null : catName;
   isSearchMode = false;
 
   const content = document.getElementById('content');
@@ -1219,6 +1222,11 @@ function toggleCategory(catName) {
 
   const oldPanel = content.querySelector('.bookmark-panel');
   if (oldPanel) oldPanel.remove();
+
+  // 收起时重置滚动位置，避免残留黑条
+  if (wasActive) {
+    document.querySelector('.container').scrollTop = 0;
+  }
 
   if (activeCat) {
     const validCategories = getValidCategories();
@@ -1237,6 +1245,7 @@ function closeBookmarkPanel() {
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
   if (panel) panel.remove();
+  document.querySelector('.container').scrollTop = 0;
 }
 
 // === 交互 ===
@@ -1274,6 +1283,18 @@ function bindContentEvents() {
     if (tvItem) {
       if (isShakeMode) { e.preventDefault(); return; }
       recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
+    }
+
+    // 搜索结果目录卡片点击（展开/收起切换）
+    const folderCard = e.target.closest('.cat-card[data-cat]');
+    if (folderCard && isSearchMode) {
+      const catName = folderCard.dataset.cat;
+      const catIdx = parseInt(folderCard.dataset.idx);
+      const isActive = folderCard.classList.contains('active');
+      content.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+      folderCard.classList.toggle('active', !isActive);
+      toggleSearchFolder(catName, catIdx, isActive);
+      return;
     }
 
     const card = e.target.closest('.cat-card[data-cat]');
@@ -1358,40 +1379,116 @@ function setupSearch() {
 }
 
 async function performSearch(keyword) {
-  // 使用后端API搜索
-  try {
-    const resp = await fetch('/api/bookmarks?q=' + encodeURIComponent(keyword));
-    const data = await resp.json();
-    const categories = data.categories || [];
+  keyword = keyword.toLowerCase();
+  const categories = getCategories();
 
-    const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
-    const searchUrl = SEARCH_ENGINE.url + encodeURIComponent(keyword);
-    let html = `<a class="search-engine-hint" href="${escAttr(searchUrl)}" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
-      在 ${escHtml(SEARCH_ENGINE.name)} 中搜索「${escHtml(displayKeyword)}」
-    </a>`;
+  const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
+  const searchUrl = SEARCH_ENGINE.url + encodeURIComponent(keyword);
+  let html = `<a class="search-engine-hint" href="${escAttr(searchUrl)}" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+    在 ${escHtml(SEARCH_ENGINE.name)} 中搜索「${escHtml(displayKeyword)}」
+  </a>`;
 
-    let found = false;
-    categories.forEach(cat => {
-      if (cat.items && cat.items.length > 0) {
-        found = true;
-        html += `<div class="search-category">${escHtml(cat.category)}</div><div class="bookmark-grid">`;
-        cat.items.forEach(item => {
-          html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
-            ${bmIconHtml(item.url, item.title)}
-            <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
-          </a>`;
-        });
-        html += '</div>';
-      }
+  // 分类搜索结果：目录名匹配 vs 书签名/URL匹配
+  const catMatched = [];
+  const itemMatched = [];
+
+  categories.forEach((cat, idx) => {
+    const shortName = cat.category.split(' / ').pop().toLowerCase();
+    const isCatMatch = shortName.includes(keyword) || cat.category.toLowerCase().includes(keyword);
+
+    const matchedItems = cat.items.filter(item =>
+      item.title.toLowerCase().includes(keyword) ||
+      item.url.toLowerCase().includes(keyword)
+    );
+
+    if (isCatMatch) {
+      catMatched.push({ cat, idx, matchedItems });
+    } else if (matchedItems.length > 0) {
+      itemMatched.push({ cat, matched: matchedItems, idx });
+    }
+  });
+
+  let found = catMatched.length > 0 || itemMatched.length > 0;
+
+  // 区域1：匹配的目录（使用 category-grid 卡片样式，类似首页）
+  if (catMatched.length > 0) {
+    html += '<div class="category-grid">';
+    catMatched.forEach(({ cat, idx }) => {
+      const shortName = cat.category.split(' / ').pop();
+      html += `<div class="cat-card" data-cat="${escAttr(cat.category)}" data-idx="${idx}">
+        <div class="cat-icon ico-${idx % 8}">${catIcon(idx)}</div>
+        <div class="cat-name">${escHtml(shortName)}</div>
+        <div class="cat-count">${cat.items.length} 书签</div>
+      </div>`;
     });
+    html += '</div>';
+    html += '<div id="searchFolderContent"></div>';
+  }
 
-    if (!found) html += '<div class="empty">未找到匹配的书签</div>';
-    document.getElementById('content').innerHTML = html;
+  // 区域2：所有匹配的条目列表
+  const allMatchedItems = [];
+  catMatched.forEach(({ cat, matchedItems }) => {
+    matchedItems.forEach(item => allMatchedItems.push({ item, cat }));
+  });
+  itemMatched.forEach(({ cat, matched }) => {
+    matched.forEach(item => allMatchedItems.push({ item, cat }));
+  });
+
+  if (allMatchedItems.length > 0) {
+    html += '<div class="search-matched-list">';
+    html += '<div class="bookmark-grid">';
+    allMatchedItems.forEach(({ item }) => {
+      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+        ${bmIconHtml(item.url, item.title)}
+        <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
+      </a>`;
+    });
+    html += '</div></div>';
+  }
+
+  if (!found) html += '<div class="empty">未找到匹配的书签</div>';
+  document.getElementById('content').innerHTML = html;
+  loadFavicons();
+}
+
+// 搜索结果：展开/收起目录
+function toggleSearchFolder(catName, catIdx, isActive) {
+  const container = document.getElementById('searchFolderContent');
+  const matchedList = document.querySelector('.search-matched-list');
+  if (!container) return;
+
+  if (isActive) {
+    // 收起：清空展开内容，显示匹配条目列表
+    container.innerHTML = '';
+    if (matchedList) matchedList.style.display = '';
+  } else {
+    // 展开：显示目录全部条目，隐藏匹配条目列表
+    if (matchedList) matchedList.style.display = 'none';
+
+    const cat = getCategories().find(c => c.category === catName);
+    if (!cat) return;
+
+    const shortName = cat.category.split(' / ').pop();
+    let html = '<div class="bookmark-panel">';
+    html += '<div class="bookmark-panel-header">';
+    html += `<span class="panel-icon ico-${catIdx % 8}">${catIcon(catIdx)}</span>`;
+    html += `<span class="panel-title">${escHtml(shortName)}</span>`;
+    html += `<span class="panel-count">${cat.items.length} 个书签</span>`;
+    html += '</div>';
+    html += '<div class="bookmark-grid">';
+    cat.items.forEach(item => {
+      const t = escHtml(cleanTitle(item.title));
+      const u = escHtml(item.url);
+      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+        ${bmIconHtml(item.url, item.title)}
+        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
+      </a>`;
+    });
+    html += '</div></div>';
+    container.innerHTML = html;
     loadFavicons();
-  } catch (e) {
-    console.error('搜索失败:', e);
-    document.getElementById('content').innerHTML = '<div class="empty">搜索失败</div>';
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 

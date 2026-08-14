@@ -470,7 +470,8 @@ function renderBookmarkPanel(categoryName, validCategories) {
 
 // 切换目录展开（针对性 DOM 更新，避免全量重渲染导致闪烁）
 function toggleCategory(catName) {
-  activeCat = (activeCat === catName) ? null : catName;
+  const wasActive = activeCat === catName;
+  activeCat = wasActive ? null : catName;
   isSearchMode = false;
 
   const content = document.getElementById('content');
@@ -483,6 +484,11 @@ function toggleCategory(catName) {
   // 移除旧面板
   const oldPanel = content.querySelector('.bookmark-panel');
   if (oldPanel) oldPanel.remove();
+
+  // 收起时重置滚动位置，避免残留黑条
+  if (wasActive) {
+    document.querySelector('.container').scrollTop = 0;
+  }
 
   // 添加新面板
   if (activeCat) {
@@ -503,6 +509,7 @@ function closeBookmarkPanel() {
   content.querySelectorAll('.cat-card').forEach(card => card.classList.remove('active'));
   const panel = content.querySelector('.bookmark-panel');
   if (panel) panel.remove();
+  document.querySelector('.container').scrollTop = 0;
 }
 
 // === 交互 ===
@@ -546,7 +553,19 @@ function bindContentEvents() {
       recordVisit(tvItem.href, tvItem.querySelector('.top-visited-name')?.textContent || '');
     }
 
-    // 目录卡片点击
+    // 搜索结果目录卡片点击（展开/收起切换）
+    const folderCard = e.target.closest('.cat-card[data-cat]');
+    if (folderCard && isSearchMode) {
+      const catName = folderCard.dataset.cat;
+      const catIdx = parseInt(folderCard.dataset.idx);
+      const isActive = folderCard.classList.contains('active');
+      // 切换 active
+      content.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+      folderCard.classList.toggle('active', !isActive);
+      toggleSearchFolder(catName, catIdx, isActive);
+      return;
+    }
+
     const card = e.target.closest('.cat-card[data-cat]');
     if (card) {
       toggleCategory(card.dataset.cat);
@@ -657,30 +676,109 @@ function performSearch(keyword) {
     在 ${escHtml(engine.name)} 中搜索「${escHtml(displayKeyword)}」
   </a>`;
 
-  // 搜索书签
-  let found = false;
-  categories.forEach(cat => {
-    const matched = cat.items.filter(item =>
+  // 分类搜索结果：目录名匹配 vs 书签名/URL匹配
+  const catMatched = [];   // 目录名匹配的分类
+  const itemMatched = [];  // 书签条目匹配的分类（目录名不匹配）
+
+  categories.forEach((cat, idx) => {
+    const shortName = cat.category.split(' / ').pop().toLowerCase();
+    const isCatMatch = shortName.includes(keyword) || cat.category.toLowerCase().includes(keyword) || pinyin.match(cat.category.split(' / ').pop(), keyword);
+
+    const matchedItems = cat.items.filter(item =>
       item.title.toLowerCase().includes(keyword) ||
       item.url.toLowerCase().includes(keyword) ||
       pinyin.match(item.title, keyword)
     );
-    if (matched.length > 0) {
-      found = true;
-      html += `<div class="search-category">${escHtml(cat.category)}</div><div class="bookmark-grid">`;
-      matched.forEach(item => {
-        html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
-          ${bmIconHtml(item.url, item.title)}
-          <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
-        </a>`;
-      });
-      html += '</div>';
+
+    if (isCatMatch) {
+      catMatched.push({ cat, idx, matchedItems });
+    } else if (matchedItems.length > 0) {
+      itemMatched.push({ cat, matched: matchedItems, idx });
     }
   });
+
+  let found = catMatched.length > 0 || itemMatched.length > 0;
+
+  // 区域1：匹配的目录（使用 category-grid 卡片样式，类似首页）
+  if (catMatched.length > 0) {
+    html += '<div class="category-grid">';
+    catMatched.forEach(({ cat, idx }) => {
+      const shortName = cat.category.split(' / ').pop();
+      html += `<div class="cat-card" data-cat="${escAttr(cat.category)}" data-idx="${idx}">
+        <div class="cat-icon ico-${idx % 8}">${catIcon(idx)}</div>
+        <div class="cat-name">${escHtml(shortName)}</div>
+        <div class="cat-count">${cat.items.length} 书签</div>
+      </div>`;
+    });
+    html += '</div>';
+    // 展开的目录条目容器
+    html += '<div id="searchFolderContent"></div>';
+  }
+
+  // 区域2：所有匹配的条目列表
+  const allMatchedItems = [];
+  catMatched.forEach(({ cat, matchedItems }) => {
+    matchedItems.forEach(item => allMatchedItems.push({ item, cat }));
+  });
+  itemMatched.forEach(({ cat, matched }) => {
+    matched.forEach(item => allMatchedItems.push({ item, cat }));
+  });
+
+  if (allMatchedItems.length > 0) {
+    html += '<div class="search-matched-list">';
+    html += '<div class="bookmark-grid">';
+    allMatchedItems.forEach(({ item }) => {
+      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+        ${bmIconHtml(item.url, item.title)}
+        <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
+      </a>`;
+    });
+    html += '</div></div>';
+  }
 
   if (!found) html += '<div class="empty">未找到匹配的书签</div>';
   document.getElementById('content').innerHTML = html;
   loadFavicons();
+}
+
+// 搜索结果：展开/收起目录
+function toggleSearchFolder(catName, catIdx, isActive) {
+  const container = document.getElementById('searchFolderContent');
+  const matchedList = document.querySelector('.search-matched-list');
+  if (!container) return;
+
+  if (isActive) {
+    // 收起：清空展开内容，显示匹配条目列表
+    container.innerHTML = '';
+    if (matchedList) matchedList.style.display = '';
+  } else {
+    // 展开：显示目录全部条目，隐藏匹配条目列表
+    if (matchedList) matchedList.style.display = 'none';
+
+    const cat = getCategories().find(c => c.category === catName);
+    if (!cat) return;
+
+    const shortName = cat.category.split(' / ').pop();
+    let html = '<div class="bookmark-panel">';
+    html += '<div class="bookmark-panel-header">';
+    html += `<span class="panel-icon ico-${catIdx % 8}">${catIcon(catIdx)}</span>`;
+    html += `<span class="panel-title">${escHtml(shortName)}</span>`;
+    html += `<span class="panel-count">${cat.items.length} 个书签</span>`;
+    html += '</div>';
+    html += '<div class="bookmark-grid">';
+    cat.items.forEach(item => {
+      const t = escHtml(cleanTitle(item.title));
+      const u = escHtml(item.url);
+      html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
+        ${bmIconHtml(item.url, item.title)}
+        <div class="bm-info"><div class="bm-title">${t}</div><div class="bm-url">${u}</div></div>
+      </a>`;
+    });
+    html += '</div></div>';
+    container.innerHTML = html;
+    loadFavicons();
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // === 后台更新监听 ===
