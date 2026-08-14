@@ -1,6 +1,8 @@
 // 全局状态
 let allCategories = [];
 let _validCategories = null;  // 缓存过滤后的有效目录
+let _localBookmarkCategories = [];  // 浏览器本地书签
+let _localBookmarksLoaded = false;
 let activeCat = null;
 let isSearchMode = false;
 let isShakeMode = false;  // 最近使用长按晃动模式
@@ -295,6 +297,8 @@ async function fetchFromBackend() {
 }
 
 async function loadData() {
+  // 加载浏览器本地书签
+  await loadLocalBookmarks();
   const cached = await loadFromCache();
   if (cached) {
     await renderDataWithVisited(cached);
@@ -305,7 +309,15 @@ async function loadData() {
     if (cached && fresh.last_update === cached.last_update && fresh.total === cached.total) return;
     await renderDataWithVisited(fresh);
   } else if (!cached) {
-    document.getElementById('content').innerHTML = '<div class="empty">未配置后端地址或无法连接<br><small>请点击右上角设置按钮进行配置</small></div>';
+    if (_localBookmarkCategories.length > 0) {
+      // 无后端数据但有本地书签，仍显示
+      allCategories = [];
+      _validCategories = null;
+      const recentItems = await getRecentVisited();
+      renderMainView(recentItems);
+    } else {
+      document.getElementById('content').innerHTML = '<div class="empty">未配置后端地址或无法连接<br><small>请点击右上角设置按钮进行配置</small></div>';
+    }
   }
 }
 
@@ -379,9 +391,66 @@ async function refreshTopVisited() {
   renderMainView(items);
 }
 
+// === 浏览器本地书签 ===
+function loadLocalBookmarks() {
+  if (!chrome.bookmarks) {
+    _localBookmarksLoaded = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    chrome.bookmarks.getTree((tree) => {
+      _localBookmarkCategories = [];
+      // 递归遍历书签树，跳过根节点的第一层（"书签栏"等）
+      function walk(nodes, parentPath) {
+        for (const node of nodes) {
+          if (node.url) {
+            // 书签条目，归入当前目录
+            const catName = parentPath || '浏览器书签';
+            let cat = _localBookmarkCategories.find(c => c.category === catName);
+            if (!cat) {
+              cat = { category: catName, items: [] };
+              _localBookmarkCategories.push(cat);
+            }
+            cat.items.push({ title: node.title || node.url, url: node.url });
+          } else if (node.children && node.children.length) {
+            // 目录节点
+            const childPath = parentPath ? parentPath + ' / ' + node.title : node.title;
+            walk(node.children, childPath);
+          }
+        }
+      }
+      if (tree[0] && tree[0].children) {
+        // 跳过根节点，直接从"书签栏/其他书签"等开始
+        for (const rootChild of tree[0].children) {
+          walk(rootChild.children || [], rootChild.title);
+        }
+      }
+      _localBookmarksLoaded = true;
+      resolve();
+    });
+  });
+}
+
 // === 目录信息 ===
 function getCategories() {
-  return allCategories.filter(c => c.category !== '__root_bookmarks__');
+  const serverCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
+  if (!_localBookmarksLoaded || _localBookmarkCategories.length === 0) return serverCats;
+
+  // 合并：同名目录合并条目，不同名目录追加
+  const merged = serverCats.map(c => ({ ...c, items: [...c.items] }));
+  for (const localCat of _localBookmarkCategories) {
+    const existing = merged.find(c => c.category === localCat.category);
+    if (existing) {
+      // 合并条目，按URL去重
+      const existingUrls = new Set(existing.items.map(i => i.url));
+      for (const item of localCat.items) {
+        if (!existingUrls.has(item.url)) existing.items.push(item);
+      }
+    } else {
+      merged.push({ ...localCat });
+    }
+  }
+  return merged;
 }
 
 // === 渲染 ===
@@ -793,6 +862,21 @@ chrome.runtime.onMessage.addListener((msg) => {
     getRecentVisited().then(items => renderMainView(items));
   }
 });
+
+// === 浏览器本地书签变化监听 ===
+if (chrome.bookmarks && chrome.bookmarks.onChanged) {
+  const refreshLocal = () => {
+    loadLocalBookmarks().then(() => {
+      _validCategories = null;
+      if (isSearchMode) return;
+      getRecentVisited().then(items => renderMainView(items));
+    });
+  };
+  chrome.bookmarks.onCreated.addListener(refreshLocal);
+  chrome.bookmarks.onRemoved.addListener(refreshLocal);
+  chrome.bookmarks.onChanged.addListener(refreshLocal);
+  chrome.bookmarks.onMoved.addListener(refreshLocal);
+}
 
 // === 设置按钮 ===
 document.getElementById('settingsBtn').addEventListener('click', () => {

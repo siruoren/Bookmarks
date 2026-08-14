@@ -12,7 +12,8 @@
   "options_page": "options.html",
   "permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "bookmarks"
   ],
   "host_permissions": [
     "<all_urls>"

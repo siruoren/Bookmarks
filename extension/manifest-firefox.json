@@ -23,6 +23,7 @@
     "storage",
     "alarms",
     "tabs",
+    "bookmarks",
     "<all_urls>"
   ],
   "icons": {
