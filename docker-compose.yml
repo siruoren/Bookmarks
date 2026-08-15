@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  bookmarks-nav:
+  seetab:
     build: .
-    container_name: bookmarks-nav
+    container_name: seetab
     ports:
       - "5005:80"
     volumes:
