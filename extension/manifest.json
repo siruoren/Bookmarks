@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SeaTab",
+  "name": "SeeTab",
   "version": "1.0.0",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "chrome_url_overrides": {

@@ -1,18 +1,17 @@
 {
   "manifest_version": 2,
-  "name": "SeaTab",
+  "name": "SeeTab",
   "version": "1.0.0",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "browser_specific_settings": {
     "gecko": {
       "id": "zhuguojun6@163.com",
-      "strict_min_version": "60.0"
+      "strict_min_version": "60.0",
+      "data_collection_permissions": {
+        "required": ["bookmarksInfo"],
+        "optional": []
+      }
     }
-  },
-  "data_collection_permissions": {
-    "marketing_data": false,
-    "health_report": false,
-    "telemetry": false
   },
   "chrome_url_overrides": {
     "newtab": "newtab.html"

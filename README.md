@@ -1,4 +1,4 @@
-# SeaTab
+# SeeTab
 
 基于 Git 同步的个人书签导航系统，包含后端 API 服务和浏览器扩展（兼容 Chrome / Edge / Firefox），实现全平台书签导航。
 
@@ -116,8 +116,8 @@ python run.py
 ```
 
 生成文件：
-- `dist/seatab-chrome-vX.X.X.zip` — Chrome / Edge 安装包
-- `dist/seatab-firefox-vX.X.X.zip` — Firefox 安装包
+- `dist/seetab-chrome-vX.X.X.zip` — Chrome / Edge 安装包
+- `dist/seetab-firefox-vX.X.X.zip` — Firefox 安装包
 
 ### 3. 配置扩展
 
