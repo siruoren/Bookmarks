@@ -49,6 +49,10 @@ cp "$EXT_DIR/background-firefox.js" "$TMP_DIR/"
 cp "$EXT_DIR/pinyin.js" "$TMP_DIR/"
 cp -r "$EXT_DIR/icons" "$TMP_DIR/"
 cp "$EXT_DIR/manifest-firefox.json" "$TMP_DIR/manifest.json"
+# 每次打包随机生成新的 gecko id
+RANDOM_ID=$(cat /dev/urandom | LC_ALL=C tr -dc 'a-z0-9' | head -c 12)
+sed -i '' "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$TMP_DIR/manifest.json"
+echo "    Firefox gecko id: ${RANDOM_ID}@seetab.app"
 cd "$TMP_DIR"
 zip -r "$DIST_DIR/$PKG_FIREFOX" . -x "*.DS_Store" "__MACOSX/*"
 rm -rf "$TMP_DIR"
