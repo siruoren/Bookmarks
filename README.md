@@ -1,4 +1,4 @@
-# Bookmarks Navigation
+# SeeTab
 
 基于 Git 同步的个人书签导航系统，包含后端 API 服务和浏览器扩展（兼容 Chrome / Edge / Firefox），实现全平台书签导航。
 
@@ -15,12 +15,13 @@
 
 - 覆盖新标签页，替代默认空白页
 - 兼容 Chrome / Edge（Manifest V3）和 Firefox（Manifest V2）
+- 读取浏览器本地书签，与服务端书签合并展示和搜索
 - Bing 每日壁纸背景（可在设置中开关）
 - 暗色/亮色主题切换
 - 天气显示（可配置城市）
 - 实时时钟 + 日历 + 农历
 - 目录标签式展示，点击展开书签
-- 书签实时搜索过滤
+- 书签实时搜索过滤（支持拼音匹配）
 - 搜索引擎搜索（支持 Bing / Google / 百度，可配置）
 - 毛玻璃风格卡片
 - 后台定时增量同步（先检查更新时间，有更新才拉取）
@@ -47,7 +48,7 @@
 
 ```bash
 git clone <your-repo-url>
-cd Bookmarks
+cd bookmarks
 ```
 
 创建配置文件 `config.yml`：
@@ -115,8 +116,8 @@ python run.py
 ```
 
 生成文件：
-- `dist/bookmarks-new-tab-chrome-vX.X.X.zip` — Chrome / Edge 安装包
-- `dist/bookmarks-new-tab-firefox-vX.X.X.zip` — Firefox 安装包
+- `dist/seetab-chrome-vX.X.X.zip` — Chrome / Edge 安装包
+- `dist/seetab-firefox-vX.X.X.zip` — Firefox 安装包
 
 ### 3. 配置扩展
 
@@ -191,7 +192,7 @@ Firefox 正式版要求扩展经过 Mozilla 签名验证。步骤：
 ## 项目结构
 
 ```
-Bookmarks/
+bookmarks/
 ├── app.py                    # Flask 主应用（API 路由 + CORS + 配置热加载）
 ├── scheduler.py              # 定时任务调度器
 ├── parser.py                 # 书签解析器（XBEL XML + HTML + TXT）
@@ -204,12 +205,14 @@ Bookmarks/
 ├── config.yml                # 配置文件（不入库）
 ├── templates/
 │   └── index.html            # Web 版前端页面
+├── static/
+│   └── pinyin.js             # 拼音搜索库
 ├── extension/                # 浏览器扩展
 │   ├── manifest.json         # Chrome/Edge Manifest V3 配置
 │   ├── manifest-firefox.json # Firefox Manifest V2 配置
 │   ├── newtab.html           # 新标签页
 │   ├── newtab.css            # 新标签页样式
-│   ├── newtab.js             # 新标签页逻辑（含 proxyFetch 代理）
+│   ├── newtab.js             # 新标签页逻辑（含 proxyFetch 代理 + 本地书签读取）
 │   ├── options.html          # 设置页
 │   ├── options.css           # 设置页样式
 │   ├── options.js            # 设置页逻辑（含 proxyFetch 代理）

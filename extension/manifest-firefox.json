@@ -1,12 +1,16 @@
 {
   "manifest_version": 2,
-  "name": "Bookmarks New Tab",
+  "name": "SeeTab",
   "version": "1.0.0",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "browser_specific_settings": {
     "gecko": {
-      "id": "bookmarks-new-tab@example.com",
-      "strict_min_version": "60.0"
+      "id": "zhuguojun6@163.com",
+      "strict_min_version": "60.0",
+      "data_collection_permissions": {
+        "required": ["bookmarksInfo"],
+        "optional": []
+      }
     }
   },
   "chrome_url_overrides": {
@@ -23,6 +27,7 @@
     "storage",
     "alarms",
     "tabs",
+    "bookmarks",
     "<all_urls>"
   ],
   "icons": {

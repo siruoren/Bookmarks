@@ -22,7 +22,7 @@ mkdir -p "$DIST_DIR"
 
 # === Chrome / Edge ===
 echo "==> 打包 Chrome/Edge v${VERSION}"
-PKG_CHROME="bookmarks-new-tab-chrome-v${VERSION}.zip"
+PKG_CHROME="seetab-chrome-v${VERSION}.zip"
 rm -f "$DIST_DIR/$PKG_CHROME"
 cd "$EXT_DIR"
 zip -r "$DIST_DIR/$PKG_CHROME" \
@@ -33,7 +33,7 @@ echo "    已生成: dist/$PKG_CHROME"
 
 # === Firefox ===
 echo "==> 打包 Firefox v${VERSION}"
-PKG_FIREFOX="bookmarks-new-tab-firefox-v${VERSION}.zip"
+PKG_FIREFOX="seetab-firefox-v${VERSION}.zip"
 rm -f "$DIST_DIR/$PKG_FIREFOX"
 TMP_DIR=$(mktemp -d)
 # 复制文件并替换 manifest
@@ -49,6 +49,10 @@ cp "$EXT_DIR/background-firefox.js" "$TMP_DIR/"
 cp "$EXT_DIR/pinyin.js" "$TMP_DIR/"
 cp -r "$EXT_DIR/icons" "$TMP_DIR/"
 cp "$EXT_DIR/manifest-firefox.json" "$TMP_DIR/manifest.json"
+# 每次打包随机生成新的 gecko id
+RANDOM_ID=$(cat /dev/urandom | LC_ALL=C tr -dc 'a-z0-9' | head -c 12)
+sed -i '' "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$TMP_DIR/manifest.json"
+echo "    Firefox gecko id: ${RANDOM_ID}@seetab.app"
 cd "$TMP_DIR"
 zip -r "$DIST_DIR/$PKG_FIREFOX" . -x "*.DS_Store" "__MACOSX/*"
 rm -rf "$TMP_DIR"

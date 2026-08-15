@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Bookmarks New Tab",
+  "name": "SeeTab",
   "version": "1.0.0",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "chrome_url_overrides": {
@@ -12,7 +12,8 @@
   "options_page": "options.html",
   "permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "bookmarks"
   ],
   "host_permissions": [
     "<all_urls>"
