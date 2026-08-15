@@ -22,7 +22,7 @@ mkdir -p "$DIST_DIR"
 
 # === Chrome / Edge ===
 echo "==> 打包 Chrome/Edge v${VERSION}"
-PKG_CHROME="bookmarks-new-tab-chrome-v${VERSION}.zip"
+PKG_CHROME="seatab-chrome-v${VERSION}.zip"
 rm -f "$DIST_DIR/$PKG_CHROME"
 cd "$EXT_DIR"
 zip -r "$DIST_DIR/$PKG_CHROME" \
@@ -33,7 +33,7 @@ echo "    已生成: dist/$PKG_CHROME"
 
 # === Firefox ===
 echo "==> 打包 Firefox v${VERSION}"
-PKG_FIREFOX="bookmarks-new-tab-firefox-v${VERSION}.zip"
+PKG_FIREFOX="seatab-firefox-v${VERSION}.zip"
 rm -f "$DIST_DIR/$PKG_FIREFOX"
 TMP_DIR=$(mktemp -d)
 # 复制文件并替换 manifest
