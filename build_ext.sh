@@ -1,5 +1,6 @@
 #!/bin/bash
 # 打包浏览器扩展为 zip 安装包（Chrome + Firefox）
+# 自动从当前 git 分支名提取版本号，并更新 manifest 版本
 # 用法: ./build_ext.sh
 
 set -e
@@ -7,7 +8,22 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXT_DIR="$SCRIPT_DIR/extension"
 DIST_DIR="$SCRIPT_DIR/dist"
-VERSION=$(grep '"version"' "$EXT_DIR/manifest.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+
+
+# 从当前 git 分支名获取版本号（分支名即为版本号，如 v1.2.0 或 1.2.0）
+BRANCH=$(git -C "$SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "dev")
+# 去除前缀 v/V
+VERSION="${BRANCH#v}"
+VERSION="${VERSION#V}"
+# 分支名为 main/master 时 fallback 为 manifest 中的版本
+if [ "$VERSION" = "main" ] || [ "$VERSION" = "master" ]; then
+  VERSION=$(grep '"version"' "$EXT_DIR/manifest.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+fi
+
+# 自动更新 manifest 版本号
+sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" "$EXT_DIR/manifest.json"
+sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" "$EXT_DIR/manifest-firefox.json"
+echo "==> 版本号: ${VERSION}（分支: ${BRANCH}）"
 
 # 公共文件列表
 COMMON_FILES=(
@@ -17,7 +33,7 @@ COMMON_FILES=(
   pinyin.js
   icons/
 )
-
+rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # === Chrome / Edge ===

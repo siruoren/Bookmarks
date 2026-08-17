@@ -287,10 +287,22 @@ def _get_pinyin_keys(text: str) -> tuple:
 
 
 def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
-    """全局搜索书签，匹配标题（含拼音/首字母）、URL"""
-    keyword = keyword.lower().strip()
-    if not keyword:
+    """全局搜索书签，支持多关键词（空格分隔，AND 逻辑），匹配标题（含拼音/首字母）、URL"""
+    keywords = [k for k in keyword.lower().strip().split() if k]
+    if not keywords:
         return categories
+
+    def match_all(text: str, kwds: list) -> bool:
+        """文本或拼音中包含所有关键词"""
+        lower = text.lower()
+        for k in kwds:
+            if k in lower:
+                continue
+            full_py, initial_py = _get_pinyin_keys(text)
+            if k in full_py or k in initial_py:
+                continue
+            return False
+        return True
 
     result = []
     for cat in categories:
@@ -298,11 +310,8 @@ def search_bookmarks(categories: List[Dict], keyword: str) -> List[Dict]:
         for item in cat["items"]:
             title = item["title"]
             url = item["url"].lower()
-            if keyword in title.lower() or keyword in url:
-                matched_items.append(item)
-                continue
-            full_py, initial_py = _get_pinyin_keys(title)
-            if keyword in full_py or keyword in initial_py:
+            # 标题匹配所有关键词，或 URL 包含所有关键词
+            if match_all(title, keywords) or all(k in url for k in keywords):
                 matched_items.append(item)
         if matched_items:
             result.append({

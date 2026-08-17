@@ -436,10 +436,11 @@ function getCategories() {
   const serverCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
   if (!_localBookmarksLoaded || _localBookmarkCategories.length === 0) return serverCats;
 
-  // 合并：同名目录合并条目，不同名目录追加
+  // 合并：按显示的目录名（短名）去重合并条目
+  const shortName = c => c.category.split(' / ').pop();
   const merged = serverCats.map(c => ({ ...c, items: [...c.items] }));
   for (const localCat of _localBookmarkCategories) {
-    const existing = merged.find(c => c.category === localCat.category);
+    const existing = merged.find(c => shortName(c) === shortName(localCat));
     if (existing) {
       // 合并条目，按URL去重
       const existingUrls = new Set(existing.items.map(i => i.url));
@@ -526,7 +527,7 @@ function renderBookmarkPanel(categoryName, validCategories) {
 
   html += '<div class="bookmark-grid">';
   cat.items.forEach(item => {
-    const t = escHtml(cleanTitle(item.title));
+    const t = escHtml(shortName) + ' - ' + escHtml(cleanTitle(item.title));
     const u = escHtml(item.url);
     html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
       ${bmIconHtml(item.url, item.title)}
@@ -733,9 +734,17 @@ function setupSearch() {
 }
 
 function performSearch(keyword) {
-  keyword = keyword.toLowerCase();
+  // 多关键词：空格分隔，全部匹配（AND）
+  const keywords = keyword.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (keywords.length === 0) return;
   const categories = getCategories();
   const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.bing;
+
+  // 多关键词模糊匹配：文本或拼音中包含所有关键词
+  function matchAll(text, kwds) {
+    const lower = text.toLowerCase();
+    return kwds.every(k => lower.includes(k) || pinyin.match(text, k));
+  }
 
   // 搜索引擎提示条
   const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
@@ -750,13 +759,11 @@ function performSearch(keyword) {
   const itemMatched = [];  // 书签条目匹配的分类（目录名不匹配）
 
   categories.forEach((cat, idx) => {
-    const shortName = cat.category.split(' / ').pop().toLowerCase();
-    const isCatMatch = shortName.includes(keyword) || cat.category.toLowerCase().includes(keyword) || pinyin.match(cat.category.split(' / ').pop(), keyword);
+    const shortName = cat.category.split(' / ').pop();
+    const isCatMatch = matchAll(shortName, keywords) || matchAll(cat.category, keywords);
 
     const matchedItems = cat.items.filter(item =>
-      item.title.toLowerCase().includes(keyword) ||
-      item.url.toLowerCase().includes(keyword) ||
-      pinyin.match(item.title, keyword)
+      matchAll(item.title, keywords) || keywords.every(k => item.url.toLowerCase().includes(k))
     );
 
     if (isCatMatch) {
@@ -796,10 +803,11 @@ function performSearch(keyword) {
   if (allMatchedItems.length > 0) {
     html += '<div class="search-matched-list">';
     html += '<div class="bookmark-grid">';
-    allMatchedItems.forEach(({ item }) => {
+    allMatchedItems.forEach(({ item, cat }) => {
+      const catShortName = cat.category.split(' / ').pop();
       html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
         ${bmIconHtml(item.url, item.title)}
-        <div class="bm-info"><div class="bm-title">${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
+        <div class="bm-info"><div class="bm-title">${escHtml(catShortName)} - ${escHtml(cleanTitle(item.title))}</div><div class="bm-url">${escHtml(item.url)}</div></div>
       </a>`;
     });
     html += '</div></div>';
@@ -836,7 +844,7 @@ function toggleSearchFolder(catName, catIdx, isActive) {
     html += '</div>';
     html += '<div class="bookmark-grid">';
     cat.items.forEach(item => {
-      const t = escHtml(cleanTitle(item.title));
+      const t = escHtml(shortName) + ' - ' + escHtml(cleanTitle(item.title));
       const u = escHtml(item.url);
       html += `<a class="bookmark-item" href="${escAttr(item.url)}" target="_blank" rel="noopener">
         ${bmIconHtml(item.url, item.title)}
