@@ -734,9 +734,17 @@ function setupSearch() {
 }
 
 function performSearch(keyword) {
-  keyword = keyword.toLowerCase();
+  // 多关键词：空格分隔，全部匹配（AND）
+  const keywords = keyword.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (keywords.length === 0) return;
   const categories = getCategories();
   const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.bing;
+
+  // 多关键词模糊匹配：文本或拼音中包含所有关键词
+  function matchAll(text, kwds) {
+    const lower = text.toLowerCase();
+    return kwds.every(k => lower.includes(k) || pinyin.match(text, k));
+  }
 
   // 搜索引擎提示条
   const displayKeyword = keyword.length > 30 ? keyword.substring(0, 30) + '...' : keyword;
@@ -751,13 +759,11 @@ function performSearch(keyword) {
   const itemMatched = [];  // 书签条目匹配的分类（目录名不匹配）
 
   categories.forEach((cat, idx) => {
-    const shortName = cat.category.split(' / ').pop().toLowerCase();
-    const isCatMatch = shortName.includes(keyword) || cat.category.toLowerCase().includes(keyword) || pinyin.match(cat.category.split(' / ').pop(), keyword);
+    const shortName = cat.category.split(' / ').pop();
+    const isCatMatch = matchAll(shortName, keywords) || matchAll(cat.category, keywords);
 
     const matchedItems = cat.items.filter(item =>
-      item.title.toLowerCase().includes(keyword) ||
-      item.url.toLowerCase().includes(keyword) ||
-      pinyin.match(item.title, keyword)
+      matchAll(item.title, keywords) || keywords.every(k => item.url.toLowerCase().includes(k))
     );
 
     if (isCatMatch) {
