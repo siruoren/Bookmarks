@@ -345,7 +345,7 @@ Firefox MV3 对扩展的 CSP 限制导致扩展页面无法直接 fetch HTTP 资
 - 扩展页面通过 `proxyFetch`（`chrome.runtime.sendMessage`）请求 background 代理
 - Background 使用 `httpGet` 函数发请求，返回结果给扩展页面
 - 同时接管 Firefox 新标签页和主页（`background-firefox.js`）
-- 每次打包 Firefox 扩展自动生成随机 gecko ID，避免 ID 冲突
+
 
 ## CI/CD 自动构建
 
