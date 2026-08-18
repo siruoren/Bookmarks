@@ -614,10 +614,13 @@ function bindContentEvents() {
       return;
     }
 
-    // 书签点击 → 记录访问
+    // 书签点击 → 记录访问（只存纯书签名，去掉目录前缀）
     const bmItem = e.target.closest('a.bookmark-item[href]');
     if (bmItem) {
-      recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
+      let bmTitle = bmItem.querySelector('.bm-title')?.textContent || '';
+      const dashIdx = bmTitle.indexOf(' - ');
+      if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
+      recordVisit(bmItem.href, bmTitle);
     }
 
     // 最近使用点击 - 晃动模式下阻止跳转
