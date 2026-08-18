@@ -910,12 +910,12 @@ async function saveRemoteToLocal() {
       return;
     }
 
-    // URL 规范化：统一解码后再比较，避免中文/编码形式不一致导致去重失败
+    // URL 规范化：统一解码、去末尾/，避免编码/斜杠差异导致去重失败
     function normUrl(u) {
       if (!u) return '';
       try { u = decodeURIComponent(u); } catch {}
-      // 去掉路径末尾的 /，避免带/和不带/视为不同URL
-      return u.replace(/\/+$/, '');
+      u = u.replace(/\/+$/, '');           // 去掉路径末尾的 /
+      return u;
     }
 
     // 带超时的 Promise 包装
@@ -968,8 +968,8 @@ async function saveRemoteToLocal() {
         let bmTitle = item.title || '';
         const dashIdx = bmTitle.indexOf(' - ');
         if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
-        await bmCall(chrome.bookmarks.create, { parentId: folder.id, title: bmTitle, url: item.url });
-        localUrls.add(normUrl(item.url));
+        const created = await bmCall(chrome.bookmarks.create, { parentId: folder.id, title: bmTitle, url: item.url });
+        localUrls.add(normUrl(created.url || item.url));
         saved++;
       }
       skipped += cat.items.length - newItems.length;
@@ -981,6 +981,7 @@ async function saveRemoteToLocal() {
       showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
     }
   } catch (e) {
+    console.error('[SeeTab] 保存远程书签失败:', e);
     showToast('保存失败：' + (e.message || e));
   } finally {
     btn.classList.remove('saving');
