@@ -928,6 +928,10 @@ async function saveRemoteToLocal() {
 
     for (const cat of remoteCats) {
       const catName = cat.category.split(' / ').pop();
+      // 先统计该目录下有多少新书签需要添加
+      const newItems = cat.items.filter(item => !localUrls.has(item.url));
+      if (newItems.length === 0) { skipped += cat.items.length; continue; }
+
       // 创建或查找目录文件夹
       const subTree = await new Promise(r => chrome.bookmarks.getChildren(barId, r));
       let folder = subTree.find(n => n.title === catName && !n.url);
@@ -935,9 +939,8 @@ async function saveRemoteToLocal() {
         folder = await new Promise(r => chrome.bookmarks.create({ parentId: barId, title: catName }, r));
       }
 
-      // 逐条添加书签（已存在则跳过，标题去掉目录前缀）
-      for (const item of cat.items) {
-        if (localUrls.has(item.url)) { skipped++; continue; }
+      // 逐条添加书签（标题去掉目录前缀）
+      for (const item of newItems) {
         let bmTitle = item.title || '';
         const dashIdx = bmTitle.indexOf(' - ');
         if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
@@ -949,6 +952,7 @@ async function saveRemoteToLocal() {
         localUrls.add(item.url);
         saved++;
       }
+      skipped += cat.items.length - newItems.length;
     }
 
     showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
