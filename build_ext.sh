@@ -3,6 +3,7 @@
 # 自动从当前 git 分支名提取版本号，并更新 manifest 版本
 # 用法: ./build_ext.sh
 
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXT_DIR="$SCRIPT_DIR/extension"
