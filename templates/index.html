@@ -1096,7 +1096,11 @@ function renderTopVisited(items) {
   html += '<div class="top-visited-title">最近使用</div>';
   html += '<div class="top-visited-grid">';
   items.forEach(item => {
-    const t = escHtml(cleanTitle(item.title));
+    // 最近使用只显示书签名，去掉「目录名 - 」前缀
+    let name = cleanTitle(item.title);
+    const dashIdx = name.indexOf(' - ');
+    if (dashIdx > 0) name = name.substring(dashIdx + 3);
+    const t = escHtml(name);
     html += `<a class="top-visited-item ${isShakeMode ? 'shake' : ''}" href="${escAttr(item.url)}" target="_blank" rel="noopener" data-url="${escAttr(item.url)}">
       ${isShakeMode ? '<span class="remove-badge" data-action="remove-visited">✕</span>' : ''}
       ${bmIconHtml(item.url, item.title)}
