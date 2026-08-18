@@ -935,12 +935,15 @@ async function saveRemoteToLocal() {
         folder = await new Promise(r => chrome.bookmarks.create({ parentId: barId, title: catName }, r));
       }
 
-      // 逐条添加书签（已存在则跳过）
+      // 逐条添加书签（已存在则跳过，标题去掉目录前缀）
       for (const item of cat.items) {
         if (localUrls.has(item.url)) { skipped++; continue; }
+        let bmTitle = item.title || '';
+        const dashIdx = bmTitle.indexOf(' - ');
+        if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
         await new Promise(r => chrome.bookmarks.create({
           parentId: folder.id,
-          title: item.title,
+          title: bmTitle,
           url: item.url
         }, r));
         localUrls.add(item.url);
