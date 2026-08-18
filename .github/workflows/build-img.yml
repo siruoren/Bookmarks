@@ -1,0 +1,86 @@
+name: Build Image
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          # 优先从 tag 提取版本号（如 v1.2.0 -> 1.2.0）
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # 从分支名提取
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            VERSION="${BRANCH#v}"
+            VERSION="${VERSION#V}"
+            # main/master 分支使用 manifest 中的版本号
+            if [[ "$VERSION" == "main" || "$VERSION" == "master" ]]; then
+              VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "==> Version: $VERSION"
+
+      - name: Build Docker image
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # 从分支名/tag 确定 Docker tag
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            DOCKER_TAG="${VERSION}"
+          else
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            TAG="${BRANCH#v}"
+            TAG="${TAG#V}"
+            if [[ "$TAG" == "main" || "$TAG" == "master" ]]; then
+              TAG="latest"
+            fi
+            DOCKER_TAG="${TAG}"
+          fi
+          echo "docker_tag=$DOCKER_TAG" >> "$GITHUB_ENV"
+          echo "==> Docker tag: seetab:${DOCKER_TAG}"
+          docker build -t "seetab:${DOCKER_TAG}" .
+
+      - name: Save Docker image to tgz
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DOCKER_TAG="${{ env.docker_tag }}"
+          mkdir -p dist
+          TGZ_FILE="dist/seetab-v${VERSION}.tgz"
+          echo "==> 保存镜像 seetab:${DOCKER_TAG} -> ${TGZ_FILE}"
+          docker save "seetab:${DOCKER_TAG}" | gzip > "$TGZ_FILE"
+          echo "==> 已生成: ${TGZ_FILE} ($(du -h "$TGZ_FILE" | cut -f1))"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seetab-img-v${{ steps.version.outputs.version }}
+          path: dist/*.tgz
+          retention-days: 90
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tgz
+          generate_release_notes: true
