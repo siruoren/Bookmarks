@@ -18,6 +18,8 @@
 - 兼容 Chrome / Edge（Manifest V3）和 Firefox（Manifest V2）
 - 读取浏览器本地书签，与服务端书签按目录名智能合并（同名目录合并条目，按 URL 去重）
 - 目录展开和搜索结果中，书签名显示为「目录名 - 书签名」，方便定位条目所属目录
+- 最近使用条目只显示纯书签名（不含目录前缀）
+- 保存远程书签到本地：点击右上角书签图标，将所有远程书签按目录写入浏览器本地书签栏（URL 去重，已存在跳过不报错）
 - Bing 每日壁纸背景（可在设置中开关）
 - 暗色/亮色主题切换
 - 天气显示（可配置城市，基于 Open-Meteo API）
@@ -37,6 +39,8 @@
 
 - 独立可访问的 Web 版导航页
 - 与浏览器扩展功能一致：目录展示、搜索、最近使用、天气、主题切换、壁纸
+- 最近使用条目只显示纯书签名（不含目录前缀）
+- 导出远程书签：点击右上角书签图标，导出为 Netscape Bookmark HTML 文件，可在浏览器中导入
 - 最近使用记录按设备 ID 隔离存储在后端
 - 无需安装扩展即可使用
 
@@ -225,6 +229,19 @@ python3 xbel_to_txt.py data/repo/bookmarks.html data/repo/bookmarks
 - **目录展开面板**：书签名显示为 `开发工具 - GitHub`
 - **搜索结果列表**：匹配的书签名同样显示为 `开发工具 - GitHub`
 - **搜索结果中的目录卡片**：可点击展开查看目录全部书签
+- **最近使用条目**：只显示纯书签名（不含目录前缀），如 `GitHub`
+
+## 保存远程书签到本地
+
+右上角书签图标按钮，将远程书签保存到本地浏览器：
+
+| 环境 | 行为 |
+|------|------|
+| 浏览器扩展 | 直接调用 `chrome.bookmarks` API 写入书签栏，按目录名创建/复用文件夹，URL 去重（已存在跳过） |
+| Web 页面 | 导出为 Netscape Bookmark HTML 文件（`seetab_bookmarks.html`），在浏览器 书签管理器 → 导入书签 中导入 |
+
+- 保存过程中自动去重：本地已存在的 URL 不会被重复添加，不报错
+- 完成后 toast 提示新增和跳过的数量
 
 ## Firefox 签名安装
 
@@ -264,7 +281,10 @@ seetab/
 ├── run.py                    # 启动入口
 ├── xbel_to_txt.py            # XBEL/HTML 书签按目录拆分为 TXT 文件
 ├── build_ext.sh              # 浏览器扩展打包脚本（分支名作为版本号，自动更新 manifest）
-├── build_img.sh              # Docker 镜像构建脚本
+├── build_img.sh              # Docker 镜像构建脚本（分支名作为镜像 tag）
+├── .github/workflows/
+│   ├── build-ext.yml         # CI：构建浏览器扩展（Chrome zip + Firefox xpi）
+│   └── build-img.yml         # CI：构建 Docker 镜像并导出 tgz
 ├── requirements.txt          # Python 依赖
 ├── Dockerfile                # Docker 镜像（python:3.11-slim + git + ssh）
 ├── docker-compose.yml        # Docker 编排（端口 5005:80）
@@ -326,6 +346,20 @@ Firefox MV3 对扩展的 CSP 限制导致扩展页面无法直接 fetch HTTP 资
 - Background 使用 `httpGet` 函数发请求，返回结果给扩展页面
 - 同时接管 Firefox 新标签页和主页（`background-firefox.js`）
 - 每次打包 Firefox 扩展自动生成随机 gecko ID，避免 ID 冲突
+
+## CI/CD 自动构建
+
+项目包含 GitHub Actions 工作流，每次 push 自动构建：
+
+| 工作流 | 产物 | 说明 |
+|--------|------|------|
+| `build-ext.yml` | `seetab-chrome-vX.X.X.zip` | Chrome 扩展（开发者模式加载） |
+| | `seetab-firefox-vX.X.X.xpi` | Firefox 扩展 |
+| `build-img.yml` | `seetab-vX.X.X.tgz` | Docker 镜像压缩包（`docker load < xxx.tgz`） |
+
+**版本号**：从 git 分支名或 tag 自动提取（`v1.2.0` → `1.2.0`，`main` → `latest`，PR → `pr-N`）
+
+**打 `v*` tag 时**：自动创建 GitHub Release 并附带全部构建产物，可选自动发布到 Chrome Web Store 和 Firefox AMO
 
 ## 配置说明
 
@@ -423,6 +457,11 @@ Firefox 正式版要求扩展签名。解决方案：
 - 输入空格分隔的多个关键词，所有关键词必须全部匹配（AND 逻辑）
 - 如 `github 开发` 匹配同时包含 `github` 和 `开发` 的书签
 - 支持拼音匹配：`kf` 可匹配 `开发`（首字母），`kaifa` 可匹配 `开发`（全拼）
+
+### 12. 保存远程书签到本地
+- 浏览器扩展：点击右上角书签图标，直接写入浏览器书签栏（按目录创建文件夹，URL 去重）
+- Web 页面：点击右上角书签图标，导出 `seetab_bookmarks.html`，在浏览器 书签管理器 → 导入书签 中导入
+- 已存在的书签自动跳过，不会报错
 
 ## 许可证
 

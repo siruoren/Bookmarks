@@ -893,6 +893,84 @@ if (chrome.bookmarks && chrome.bookmarks.onChanged) {
   chrome.bookmarks.onMoved.addListener(refreshLocal);
 }
 
+// === 保存远程书签到本地 ===
+async function saveRemoteToLocal() {
+  if (!chrome.bookmarks) {
+    showToast('当前环境不支持浏览器书签API');
+    return;
+  }
+  const remoteCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
+  if (!remoteCats.length) {
+    showToast('没有远程书签可保存');
+    return;
+  }
+
+  const btn = document.getElementById('saveBmBtn');
+  btn.classList.add('saving');
+
+  try {
+    // 收集本地已有书签URL（全量去重）
+    const localTree = await new Promise(r => chrome.bookmarks.getTree(r));
+    const localUrls = new Set();
+    function collectUrls(nodes) {
+      for (const n of nodes) {
+        if (n.url) localUrls.add(n.url);
+        if (n.children) collectUrls(n.children);
+      }
+    }
+    if (localTree[0]) collectUrls(localTree[0].children || []);
+
+    // 获取书签栏ID
+    const barId = localTree[0]?.children?.[0]?.id;
+    if (!barId) { showToast('无法获取书签栏'); return; }
+
+    let saved = 0, skipped = 0;
+
+    for (const cat of remoteCats) {
+      const catName = cat.category.split(' / ').pop();
+      // 创建或查找目录文件夹
+      const subTree = await new Promise(r => chrome.bookmarks.getChildren(barId, r));
+      let folder = subTree.find(n => n.title === catName && !n.url);
+      if (!folder) {
+        folder = await new Promise(r => chrome.bookmarks.create({ parentId: barId, title: catName }, r));
+      }
+
+      // 逐条添加书签（已存在则跳过，标题去掉目录前缀）
+      for (const item of cat.items) {
+        if (localUrls.has(item.url)) { skipped++; continue; }
+        let bmTitle = item.title || '';
+        const dashIdx = bmTitle.indexOf(' - ');
+        if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
+        await new Promise(r => chrome.bookmarks.create({
+          parentId: folder.id,
+          title: bmTitle,
+          url: item.url
+        }, r));
+        localUrls.add(item.url);
+        saved++;
+      }
+    }
+
+    showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
+  } catch (e) {
+    showToast('保存失败：' + (e.message || e));
+  } finally {
+    btn.classList.remove('saving');
+  }
+}
+
+function showToast(msg) {
+  const old = document.querySelector('.save-bm-toast');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'save-bm-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+document.getElementById('saveBmBtn').addEventListener('click', saveRemoteToLocal);
+
 // === 设置按钮 ===
 document.getElementById('settingsBtn').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
