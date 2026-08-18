@@ -82,7 +82,7 @@ jobs:
           cp -r extension/icons "$XPI_DIR/"
 
           # 每次构建随机生成 gecko id
-          RANDOM_ID=$(cat /dev/urandom | tr -dc 'a-z0-9' | head -c 12)
+          RANDOM_ID='dp8y1l87zlxq'
           sed -i "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$XPI_DIR/manifest.json"
           echo "==> Firefox gecko id: ${RANDOM_ID}@seetab.app"
 
