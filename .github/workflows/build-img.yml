@@ -29,7 +29,7 @@ jobs:
           # 优先从 tag 提取版本号（如 v1.2.0 -> 1.2.0）
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
-          else
+          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
             # 从分支名提取
             BRANCH="${GITHUB_REF#refs/heads/}"
             VERSION="${BRANCH#v}"
@@ -38,6 +38,9 @@ jobs:
             if [[ "$VERSION" == "main" || "$VERSION" == "master" ]]; then
               VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
             fi
+          else
+            # PR 等其他情况，使用 manifest 中的版本号
+            VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "==> Version: $VERSION"
