@@ -147,6 +147,8 @@ jobs:
           cp extension/pinyin.js "$SIGN_DIR/"
           cp -r extension/icons "$SIGN_DIR/"
 
+          # 签名时使用 manifest-firefox.json 中的原始 gecko ID（与 AMO 注册的 ID 一致）
+          # 不要替换 ID，否则会导致 "Duplicate add-on ID" 冲突
           echo "==> 签名 Firefox 扩展..."
           web-ext sign \
             --source-dir "$SIGN_DIR" \
