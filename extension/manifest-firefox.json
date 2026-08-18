@@ -5,7 +5,7 @@
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "browser_specific_settings": {
     "gecko": {
-      "id": "seetab@siruoren.com",
+      "id": "dp8y1l87zlxq@seetab.app",
       "strict_min_version": "60.0",
       "data_collection_permissions": {
         "required": ["bookmarksInfo"],
