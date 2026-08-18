@@ -909,12 +909,20 @@ async function saveRemoteToLocal() {
   btn.classList.add('saving');
 
   try {
+    // URL 规范化：统一解码后再比较，避免中文/编码形式不一致导致去重失败
+    function normUrl(u) {
+      if (!u) return '';
+      try { u = decodeURIComponent(u); } catch {}
+      // 去掉路径末尾的 /，避免带/和不带/视为不同URL
+      return u.replace(/\/+$/, '');
+    }
+
     // 收集本地已有书签URL（全量去重）
     const localTree = await new Promise(r => chrome.bookmarks.getTree(r));
     const localUrls = new Set();
     function collectUrls(nodes) {
       for (const n of nodes) {
-        if (n.url) localUrls.add(n.url);
+        if (n.url) localUrls.add(normUrl(n.url));
         if (n.children) collectUrls(n.children);
       }
     }
@@ -929,7 +937,7 @@ async function saveRemoteToLocal() {
     for (const cat of remoteCats) {
       const catName = cat.category.split(' / ').pop();
       // 先统计该目录下有多少新书签需要添加
-      const newItems = cat.items.filter(item => !localUrls.has(item.url));
+      const newItems = cat.items.filter(item => !localUrls.has(normUrl(item.url)));
       if (newItems.length === 0) { skipped += cat.items.length; continue; }
 
       // 创建或查找目录文件夹
@@ -949,7 +957,7 @@ async function saveRemoteToLocal() {
           title: bmTitle,
           url: item.url
         }, r));
-        localUrls.add(item.url);
+        localUrls.add(normUrl(item.url));
         saved++;
       }
       skipped += cat.items.length - newItems.length;
