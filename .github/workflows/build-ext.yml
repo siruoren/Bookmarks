@@ -54,7 +54,6 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           mkdir -p dist
-          # 准备 Chrome 扩展目录
           CHROME_DIR=$(mktemp -d)
           cp extension/manifest.json "$CHROME_DIR/"
           cp extension/newtab.html extension/newtab.css extension/newtab.js "$CHROME_DIR/"
@@ -70,7 +69,6 @@ jobs:
       - name: Build Firefox .xpi
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # 准备 Firefox 扩展目录
           XPI_DIR=$(mktemp -d)
           cp extension/manifest-firefox.json "$XPI_DIR/manifest.json"
           cp extension/newtab.html extension/newtab.css extension/newtab.js "$XPI_DIR/"
@@ -85,7 +83,6 @@ jobs:
           sed -i "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$XPI_DIR/manifest.json"
           echo "==> Firefox gecko id: ${RANDOM_ID}@seetab.app"
 
-          # .xpi 本质是 zip
           cd "$XPI_DIR"
           zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.xpi" . -x "*.DS_Store" "__MACOSX/*"
           echo "==> 已生成: dist/seetab-firefox-v${VERSION}.xpi"
@@ -94,18 +91,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # 需要在 GitHub 仓库 Settings > Secrets 中配置以下 secrets：
-          #   CWS_CLIENT_ID     - Google OAuth Client ID
-          #   CWS_CLIENT_SECRET - Google OAuth Client Secret
-          #   CWS_REFRESH_TOKEN  - Google OAuth Refresh Token
-          #   CWS_EXTENSION_ID   - Chrome Web Store 中的扩展 ID
-          # 获取方法见: https://developer.chrome.com/docs/webstore/using_webstore_api/
           if [ -z "$CWS_CLIENT_ID" ]; then
             echo "==> 跳过 Chrome Web Store 发布（未配置 CWS secrets）"
             exit 0
           fi
 
-          # 获取 access_token
           TOKEN_RESP=$(curl -s -X POST \
             -d "client_id=${CWS_CLIENT_ID}" \
             -d "client_secret=${CWS_CLIENT_SECRET}" \
@@ -114,7 +104,6 @@ jobs:
             https://www.googleapis.com/oauth2/v4/token)
           ACCESS_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-          # 上传 zip 包
           echo "==> 上传到 Chrome Web Store..."
           curl -s -X PUT \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -122,7 +111,6 @@ jobs:
             -T "dist/seetab-chrome-v${VERSION}.zip" \
             "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}"
 
-          # 发布
           echo "==> 发布到 Chrome Web Store..."
           curl -s -X POST \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -140,20 +128,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # 需要在 GitHub 仓库 Settings > Secrets 中配置以下 secrets：
-          #   AMO_API_KEY    - Mozilla Add-ons API Key (jwtIssuer)
-          #   AMO_API_SECRET - Mozilla Add-ons API Secret (jwtSecret)
-          #   AMO_EXTENSION_ID - Firefox add-on ID (如 seetab@example.com)
-          # 获取方法见: https://addons.mozilla.org/developers/
           if [ -z "$AMO_API_KEY" ]; then
             echo "==> 跳过 Firefox AMO 签名发布（未配置 AMO secrets）"
             exit 0
           fi
 
-          # 安装 web-ext
           npm install -g web-ext
 
-          # 准备 Firefox 扩展目录用于签名
           SIGN_DIR=$(mktemp -d)
           cp extension/manifest-firefox.json "$SIGN_DIR/manifest.json"
           cp extension/newtab.html extension/newtab.css extension/newtab.js "$SIGN_DIR/"
@@ -163,7 +144,6 @@ jobs:
           cp extension/pinyin.js "$SIGN_DIR/"
           cp -r extension/icons "$SIGN_DIR/"
 
-          # 签名
           echo "==> 签名 Firefox 扩展..."
           web-ext sign \
             --source-dir "$SIGN_DIR" \
@@ -179,7 +159,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: seetab-extension-v${{ steps.version.outputs.version }}
+          name: seetab-ext-v${{ steps.version.outputs.version }}
           path: |
             dist/*.zip
             dist/*.xpi
