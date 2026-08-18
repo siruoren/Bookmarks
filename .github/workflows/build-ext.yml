@@ -42,14 +42,6 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "==> Version: $VERSION"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install crx3
-        run: npm install -g crx3
-
       - name: Update manifest versions
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -58,32 +50,20 @@ jobs:
           echo "==> manifest.json version: $(grep '"version"' extension/manifest.json)"
           echo "==> manifest-firefox.json version: $(grep '"version"' extension/manifest-firefox.json)"
 
-      - name: Build Chrome .crx
+      - name: Build Chrome zip
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           mkdir -p dist
           # 准备 Chrome 扩展目录
-          CRX_DIR=$(mktemp -d)
-          cp extension/manifest.json "$CRX_DIR/"
-          cp extension/newtab.html extension/newtab.css extension/newtab.js "$CRX_DIR/"
-          cp extension/options.html extension/options.css extension/options.js "$CRX_DIR/"
-          cp extension/background.js "$CRX_DIR/"
-          cp extension/pinyin.js "$CRX_DIR/"
-          cp -r extension/icons "$CRX_DIR/"
+          CHROME_DIR=$(mktemp -d)
+          cp extension/manifest.json "$CHROME_DIR/"
+          cp extension/newtab.html extension/newtab.css extension/newtab.js "$CHROME_DIR/"
+          cp extension/options.html extension/options.css extension/options.js "$CHROME_DIR/"
+          cp extension/background.js "$CHROME_DIR/"
+          cp extension/pinyin.js "$CHROME_DIR/"
+          cp -r extension/icons "$CHROME_DIR/"
 
-          # 生成签名密钥（如不存在）
-          KEY_FILE="dist/seetab-chrome.pem"
-          if [ ! -f "$KEY_FILE" ]; then
-            openssl genrsa 2048 > "$KEY_FILE"
-            echo "==> 已生成新的 Chrome 签名密钥"
-          fi
-
-          # 使用 crx3 打包 .crx
-          crx3 "$CRX_DIR" --keyPath "$KEY_FILE" -o "dist/seetab-chrome-v${VERSION}.crx"
-          echo "==> 已生成: dist/seetab-chrome-v${VERSION}.crx"
-
-          # 同时生成 zip（用于开发者模式加载）
-          cd "$CRX_DIR"
+          cd "$CHROME_DIR"
           zip -r "$OLDPWD/dist/seetab-chrome-v${VERSION}.zip" . -x "*.DS_Store" "__MACOSX/*"
           echo "==> 已生成: dist/seetab-chrome-v${VERSION}.zip"
 
@@ -110,18 +90,99 @@ jobs:
           zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.xpi" . -x "*.DS_Store" "__MACOSX/*"
           echo "==> 已生成: dist/seetab-firefox-v${VERSION}.xpi"
 
-          # 同时生成 zip
-          zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.zip" . -x "*.DS_Store" "__MACOSX/*"
-          echo "==> 已生成: dist/seetab-firefox-v${VERSION}.zip"
+      - name: Publish to Chrome Web Store
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # 需要在 GitHub 仓库 Settings > Secrets 中配置以下 secrets：
+          #   CWS_CLIENT_ID     - Google OAuth Client ID
+          #   CWS_CLIENT_SECRET - Google OAuth Client Secret
+          #   CWS_REFRESH_TOKEN  - Google OAuth Refresh Token
+          #   CWS_EXTENSION_ID   - Chrome Web Store 中的扩展 ID
+          # 获取方法见: https://developer.chrome.com/docs/webstore/using_webstore_api/
+          if [ -z "$CWS_CLIENT_ID" ]; then
+            echo "==> 跳过 Chrome Web Store 发布（未配置 CWS secrets）"
+            exit 0
+          fi
+
+          # 获取 access_token
+          TOKEN_RESP=$(curl -s -X POST \
+            -d "client_id=${CWS_CLIENT_ID}" \
+            -d "client_secret=${CWS_CLIENT_SECRET}" \
+            -d "refresh_token=${CWS_REFRESH_TOKEN}" \
+            -d "grant_type=refresh_token" \
+            https://www.googleapis.com/oauth2/v4/token)
+          ACCESS_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+          # 上传 zip 包
+          echo "==> 上传到 Chrome Web Store..."
+          curl -s -X PUT \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "x-goog-api-version: 2" \
+            -T "dist/seetab-chrome-v${VERSION}.zip" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}"
+
+          # 发布
+          echo "==> 发布到 Chrome Web Store..."
+          curl -s -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Length: 0" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}/publish"
+          echo "==> Chrome Web Store 发布完成"
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+
+      - name: Sign and publish Firefox add-on
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # 需要在 GitHub 仓库 Settings > Secrets 中配置以下 secrets：
+          #   AMO_API_KEY    - Mozilla Add-ons API Key (jwtIssuer)
+          #   AMO_API_SECRET - Mozilla Add-ons API Secret (jwtSecret)
+          #   AMO_EXTENSION_ID - Firefox add-on ID (如 seetab@example.com)
+          # 获取方法见: https://addons.mozilla.org/developers/
+          if [ -z "$AMO_API_KEY" ]; then
+            echo "==> 跳过 Firefox AMO 签名发布（未配置 AMO secrets）"
+            exit 0
+          fi
+
+          # 安装 web-ext
+          npm install -g web-ext
+
+          # 准备 Firefox 扩展目录用于签名
+          SIGN_DIR=$(mktemp -d)
+          cp extension/manifest-firefox.json "$SIGN_DIR/manifest.json"
+          cp extension/newtab.html extension/newtab.css extension/newtab.js "$SIGN_DIR/"
+          cp extension/options.html extension/options.css extension/options.js "$SIGN_DIR/"
+          cp extension/background.js "$SIGN_DIR/"
+          cp extension/background-firefox.js "$SIGN_DIR/"
+          cp extension/pinyin.js "$SIGN_DIR/"
+          cp -r extension/icons "$SIGN_DIR/"
+
+          # 签名
+          echo "==> 签名 Firefox 扩展..."
+          web-ext sign \
+            --source-dir "$SIGN_DIR" \
+            --api-key "$AMO_API_KEY" \
+            --api-secret "$AMO_API_SECRET" \
+            --channel listed \
+            --artifacts-dir dist
+          echo "==> Firefox AMO 签名发布完成"
+        env:
+          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: seetab-extension-v${{ steps.version.outputs.version }}
           path: |
-            dist/*.crx
-            dist/*.xpi
             dist/*.zip
+            dist/*.xpi
           retention-days: 90
 
       - name: Create release on tag
@@ -129,7 +190,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.crx
-            dist/*.xpi
             dist/*.zip
+            dist/*.xpi
           generate_release_notes: true
