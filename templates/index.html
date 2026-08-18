@@ -1280,7 +1280,10 @@ function bindContentEvents() {
 
     const bmItem = e.target.closest('a.bookmark-item[href]');
     if (bmItem) {
-      recordVisit(bmItem.href, bmItem.querySelector('.bm-title')?.textContent || '');
+      let bmTitle = bmItem.querySelector('.bm-title')?.textContent || '';
+      const dashIdx = bmTitle.indexOf(' - ');
+      if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
+      recordVisit(bmItem.href, bmTitle);
     }
 
     const tvItem = e.target.closest('a.top-visited-item[href]');
