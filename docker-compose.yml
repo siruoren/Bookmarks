@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   seetab:
-    build: .
+    image: seetab:latest
     container_name: seetab
     ports:
       - "5005:80"
