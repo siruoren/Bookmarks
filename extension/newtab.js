@@ -896,10 +896,11 @@ if (chrome.bookmarks && chrome.bookmarks.onChanged) {
 // === 保存远程书签到本地 ===
 async function saveRemoteToLocal() {
   const btn = document.getElementById('saveBmBtn');
+  if (btn.classList.contains('saving')) return;
   btn.classList.add('saving');
 
   try {
-    if (!chrome.bookmarks) {
+    if (!chrome || !chrome.bookmarks) {
       showToast('当前环境不支持浏览器书签API');
       return;
     }
@@ -917,8 +918,23 @@ async function saveRemoteToLocal() {
       return u.replace(/\/+$/, '');
     }
 
+    // 带超时的 Promise 包装
+    function bmCall(fn, ...args) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('操作超时')), 10000);
+        fn(...args, (result) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        });
+      });
+    }
+
     // 收集本地已有书签URL（全量去重）
-    const localTree = await new Promise(r => chrome.bookmarks.getTree(r));
+    const localTree = await bmCall(chrome.bookmarks.getTree);
     const localUrls = new Set();
     function collectUrls(nodes) {
       for (const n of nodes) {
@@ -941,10 +957,10 @@ async function saveRemoteToLocal() {
       if (newItems.length === 0) { skipped += cat.items.length; continue; }
 
       // 创建或查找目录文件夹
-      const subTree = await new Promise(r => chrome.bookmarks.getChildren(barId, r));
+      const subTree = await bmCall(chrome.bookmarks.getChildren, barId);
       let folder = subTree.find(n => n.title === catName && !n.url);
       if (!folder) {
-        folder = await new Promise(r => chrome.bookmarks.create({ parentId: barId, title: catName }, r));
+        folder = await bmCall(chrome.bookmarks.create, { parentId: barId, title: catName });
       }
 
       // 逐条添加书签（标题去掉目录前缀）
@@ -952,18 +968,18 @@ async function saveRemoteToLocal() {
         let bmTitle = item.title || '';
         const dashIdx = bmTitle.indexOf(' - ');
         if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
-        await new Promise(r => chrome.bookmarks.create({
-          parentId: folder.id,
-          title: bmTitle,
-          url: item.url
-        }, r));
+        await bmCall(chrome.bookmarks.create, { parentId: folder.id, title: bmTitle, url: item.url });
         localUrls.add(normUrl(item.url));
         saved++;
       }
       skipped += cat.items.length - newItems.length;
     }
 
-    showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
+    if (saved === 0 && skipped > 0) {
+      showToast(`所有 ${skipped} 个远程书签已存在于本地，无需添加`);
+    } else {
+      showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
+    }
   } catch (e) {
     showToast('保存失败：' + (e.message || e));
   } finally {
