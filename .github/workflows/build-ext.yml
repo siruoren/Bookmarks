@@ -87,74 +87,74 @@ jobs:
           zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.xpi" . -x "*.DS_Store" "__MACOSX/*"
           echo "==> 已生成: dist/seetab-firefox-v${VERSION}.xpi"
 
-      - name: Publish to Chrome Web Store
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          if [ -z "$CWS_CLIENT_ID" ]; then
-            echo "==> 跳过 Chrome Web Store 发布（未配置 CWS secrets）"
-            exit 0
-          fi
+      # - name: Publish to Chrome Web Store
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     VERSION="${{ steps.version.outputs.version }}"
+      #     if [ -z "$CWS_CLIENT_ID" ]; then
+      #       echo "==> 跳过 Chrome Web Store 发布（未配置 CWS secrets）"
+      #       exit 0
+      #     fi
 
-          TOKEN_RESP=$(curl -s -X POST \
-            -d "client_id=${CWS_CLIENT_ID}" \
-            -d "client_secret=${CWS_CLIENT_SECRET}" \
-            -d "refresh_token=${CWS_REFRESH_TOKEN}" \
-            -d "grant_type=refresh_token" \
-            https://www.googleapis.com/oauth2/v4/token)
-          ACCESS_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+      #     TOKEN_RESP=$(curl -s -X POST \
+      #       -d "client_id=${CWS_CLIENT_ID}" \
+      #       -d "client_secret=${CWS_CLIENT_SECRET}" \
+      #       -d "refresh_token=${CWS_REFRESH_TOKEN}" \
+      #       -d "grant_type=refresh_token" \
+      #       https://www.googleapis.com/oauth2/v4/token)
+      #     ACCESS_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-          echo "==> 上传到 Chrome Web Store..."
-          curl -s -X PUT \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H "x-goog-api-version: 2" \
-            -T "dist/seetab-chrome-v${VERSION}.zip" \
-            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}"
+      #     echo "==> 上传到 Chrome Web Store..."
+      #     curl -s -X PUT \
+      #       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      #       -H "x-goog-api-version: 2" \
+      #       -T "dist/seetab-chrome-v${VERSION}.zip" \
+      #       "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}"
 
-          echo "==> 发布到 Chrome Web Store..."
-          curl -s -X POST \
-            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-            -H "x-goog-api-version: 2" \
-            -H "Content-Length: 0" \
-            "https://www.googleapis.com/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}/publish"
-          echo "==> Chrome Web Store 发布完成"
-        env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+      #     echo "==> 发布到 Chrome Web Store..."
+      #     curl -s -X POST \
+      #       -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      #       -H "x-goog-api-version: 2" \
+      #       -H "Content-Length: 0" \
+      #       "https://www.googleapis.com/chromewebstore/v1.1/items/${CWS_EXTENSION_ID}/publish"
+      #     echo "==> Chrome Web Store 发布完成"
+      #   env:
+      #     CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      #     CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      #     CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+      #     CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
 
-      - name: Sign and publish Firefox add-on
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          if [ -z "$AMO_API_KEY" ]; then
-            echo "==> 跳过 Firefox AMO 签名发布（未配置 AMO secrets）"
-            exit 0
-          fi
+      # - name: Sign and publish Firefox add-on
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     VERSION="${{ steps.version.outputs.version }}"
+      #     if [ -z "$AMO_API_KEY" ]; then
+      #       echo "==> 跳过 Firefox AMO 签名发布（未配置 AMO secrets）"
+      #       exit 0
+      #     fi
 
-          npm install -g web-ext
+      #     npm install -g web-ext
 
-          SIGN_DIR=$(mktemp -d)
-          cp extension/manifest-firefox.json "$SIGN_DIR/manifest.json"
-          cp extension/newtab.html extension/newtab.css extension/newtab.js "$SIGN_DIR/"
-          cp extension/options.html extension/options.css extension/options.js "$SIGN_DIR/"
-          cp extension/background.js "$SIGN_DIR/"
-          cp extension/background-firefox.js "$SIGN_DIR/"
-          cp extension/pinyin.js "$SIGN_DIR/"
-          cp -r extension/icons "$SIGN_DIR/"
+      #     SIGN_DIR=$(mktemp -d)
+      #     cp extension/manifest-firefox.json "$SIGN_DIR/manifest.json"
+      #     cp extension/newtab.html extension/newtab.css extension/newtab.js "$SIGN_DIR/"
+      #     cp extension/options.html extension/options.css extension/options.js "$SIGN_DIR/"
+      #     cp extension/background.js "$SIGN_DIR/"
+      #     cp extension/background-firefox.js "$SIGN_DIR/"
+      #     cp extension/pinyin.js "$SIGN_DIR/"
+      #     cp -r extension/icons "$SIGN_DIR/"
 
-          echo "==> 签名 Firefox 扩展..."
-          web-ext sign \
-            --source-dir "$SIGN_DIR" \
-            --api-key "$AMO_API_KEY" \
-            --api-secret "$AMO_API_SECRET" \
-            --channel listed \
-            --artifacts-dir dist
-          echo "==> Firefox AMO 签名发布完成"
-        env:
-          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
-          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+      #     echo "==> 签名 Firefox 扩展..."
+      #     web-ext sign \
+      #       --source-dir "$SIGN_DIR" \
+      #       --api-key "$AMO_API_KEY" \
+      #       --api-secret "$AMO_API_SECRET" \
+      #       --channel listed \
+      #       --artifacts-dir dist
+      #     echo "==> Firefox AMO 签名发布完成"
+      #   env:
+      #     AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+      #     AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
