@@ -158,6 +158,7 @@ jobs:
             }
           }
           META_EOF
+          echo "WEB_EXT_AMO_METADATA=$SIGN_DIR/metadata.json" >> "$GITHUB_ENV"
 
           # 签名时使用 manifest-firefox.json 中的原始 gecko ID（与 AMO 注册的 ID 一致）
           echo "==> 签名 Firefox 扩展..."
@@ -171,7 +172,6 @@ jobs:
         env:
           AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
           AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
-          WEB_EXT_AMO_METADATA: metadata.json
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
