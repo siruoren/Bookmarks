@@ -1,0 +1,135 @@
+name: Build Extension
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          # 优先从 tag 提取版本号（如 v1.2.0 -> 1.2.0）
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # 从分支名提取
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            VERSION="${BRANCH#v}"
+            VERSION="${VERSION#V}"
+            # main/master 分支使用 manifest 中的版本号
+            if [[ "$VERSION" == "main" || "$VERSION" == "master" ]]; then
+              VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "==> Version: $VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install crx3
+        run: npm install -g crx3
+
+      - name: Update manifest versions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" extension/manifest.json
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" extension/manifest-firefox.json
+          echo "==> manifest.json version: $(grep '"version"' extension/manifest.json)"
+          echo "==> manifest-firefox.json version: $(grep '"version"' extension/manifest-firefox.json)"
+
+      - name: Build Chrome .crx
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p dist
+          # 准备 Chrome 扩展目录
+          CRX_DIR=$(mktemp -d)
+          cp extension/manifest.json "$CRX_DIR/"
+          cp extension/newtab.html extension/newtab.css extension/newtab.js "$CRX_DIR/"
+          cp extension/options.html extension/options.css extension/options.js "$CRX_DIR/"
+          cp extension/background.js "$CRX_DIR/"
+          cp extension/pinyin.js "$CRX_DIR/"
+          cp -r extension/icons "$CRX_DIR/"
+
+          # 生成签名密钥（如不存在）
+          KEY_FILE="dist/seetab-chrome.pem"
+          if [ ! -f "$KEY_FILE" ]; then
+            openssl genrsa 2048 > "$KEY_FILE"
+            echo "==> 已生成新的 Chrome 签名密钥"
+          fi
+
+          # 使用 crx3 打包 .crx
+          crx3 "$CRX_DIR" --keyPath "$KEY_FILE" -o "dist/seetab-chrome-v${VERSION}.crx"
+          echo "==> 已生成: dist/seetab-chrome-v${VERSION}.crx"
+
+          # 同时生成 zip（用于开发者模式加载）
+          cd "$CRX_DIR"
+          zip -r "$OLDPWD/dist/seetab-chrome-v${VERSION}.zip" . -x "*.DS_Store" "__MACOSX/*"
+          echo "==> 已生成: dist/seetab-chrome-v${VERSION}.zip"
+
+      - name: Build Firefox .xpi
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # 准备 Firefox 扩展目录
+          XPI_DIR=$(mktemp -d)
+          cp extension/manifest-firefox.json "$XPI_DIR/manifest.json"
+          cp extension/newtab.html extension/newtab.css extension/newtab.js "$XPI_DIR/"
+          cp extension/options.html extension/options.css extension/options.js "$XPI_DIR/"
+          cp extension/background.js "$XPI_DIR/"
+          cp extension/background-firefox.js "$XPI_DIR/"
+          cp extension/pinyin.js "$XPI_DIR/"
+          cp -r extension/icons "$XPI_DIR/"
+
+          # 每次构建随机生成 gecko id
+          RANDOM_ID=$(cat /dev/urandom | tr -dc 'a-z0-9' | head -c 12)
+          sed -i "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$XPI_DIR/manifest.json"
+          echo "==> Firefox gecko id: ${RANDOM_ID}@seetab.app"
+
+          # .xpi 本质是 zip
+          cd "$XPI_DIR"
+          zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.xpi" . -x "*.DS_Store" "__MACOSX/*"
+          echo "==> 已生成: dist/seetab-firefox-v${VERSION}.xpi"
+
+          # 同时生成 zip
+          zip -r "$OLDPWD/dist/seetab-firefox-v${VERSION}.zip" . -x "*.DS_Store" "__MACOSX/*"
+          echo "==> 已生成: dist/seetab-firefox-v${VERSION}.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seetab-extension-v${{ steps.version.outputs.version }}
+          path: |
+            dist/*.crx
+            dist/*.xpi
+            dist/*.zip
+          retention-days: 90
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.crx
+            dist/*.xpi
+            dist/*.zip
+          generate_release_notes: true
