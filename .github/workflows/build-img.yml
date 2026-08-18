@@ -51,7 +51,7 @@ jobs:
           # 从分支名/tag 确定 Docker tag
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             DOCKER_TAG="${VERSION}"
-          else
+          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
             BRANCH="${GITHUB_REF#refs/heads/}"
             TAG="${BRANCH#v}"
             TAG="${TAG#V}"
@@ -59,6 +59,9 @@ jobs:
               TAG="latest"
             fi
             DOCKER_TAG="${TAG}"
+          else
+            # PR 等其他情况，使用 pr-N 格式
+            DOCKER_TAG="pr-${{ github.event.pull_request.number || '0' }}"
           fi
           echo "docker_tag=$DOCKER_TAG" >> "$GITHUB_ENV"
           echo "==> Docker tag: seetab:${DOCKER_TAG}"
