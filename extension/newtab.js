@@ -895,20 +895,20 @@ if (chrome.bookmarks && chrome.bookmarks.onChanged) {
 
 // === 保存远程书签到本地 ===
 async function saveRemoteToLocal() {
-  if (!chrome.bookmarks) {
-    showToast('当前环境不支持浏览器书签API');
-    return;
-  }
-  const remoteCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
-  if (!remoteCats.length) {
-    showToast('没有远程书签可保存');
-    return;
-  }
-
   const btn = document.getElementById('saveBmBtn');
   btn.classList.add('saving');
 
   try {
+    if (!chrome.bookmarks) {
+      showToast('当前环境不支持浏览器书签API');
+      return;
+    }
+    const remoteCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
+    if (!remoteCats.length) {
+      showToast('没有远程书签可保存');
+      return;
+    }
+
     // URL 规范化：统一解码后再比较，避免中文/编码形式不一致导致去重失败
     function normUrl(u) {
       if (!u) return '';
