@@ -3,7 +3,6 @@
   "name": "SeeTab",
   "version": "1.2.1",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
-  "license": "MIT",
   "browser_specific_settings": {
     "gecko": {
       "id": "seetab@siruoren.com",
