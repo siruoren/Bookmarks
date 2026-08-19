@@ -215,11 +215,11 @@ body.has-wallpaper > * {
 
 .save-bm-btn.saving { opacity: 0.6; pointer-events: none; }
 
-.save-bm-toast {
-  position: fixed; top: 60px; right: 20px; z-index: 9999;
-  background: var(--card-bg); color: var(--text); border: 1px solid var(--border);
+body > .save-bm-toast {
+  position: fixed; top: 60px; right: 20px; z-index: 99999;
+  background: var(--bg2); color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: 10px 18px; font-size: 14px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
   animation: toast-in 0.3s ease;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1607,17 +1607,47 @@ function saveRemoteToLocal() {
   btn.classList.add('saving');
 
   try {
+    // URL 规范化：统一解码、去末尾/，避免编码/斜杠差异导致去重失败
+    function normUrl(u) {
+      if (!u) return '';
+      try { u = decodeURIComponent(u); } catch {}
+      u = u.replace(/\/+$/, '');
+      return u;
+    }
+
     let html = '<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n';
+
+    // 嵌套在书签栏文件夹下，与插件保存到书签栏一致
+    html += '    <DT><H3>书签栏</H3>\n    <DL><p>\n';
+
+    const exportUrls = new Set();
+    let total = 0, dupSkipped = 0;
 
     for (const cat of remoteCats) {
       const catName = cat.category.split(' / ').pop();
-      html += `    <DT><H3>${escHtml(catName)}</H3>\n    <DL><p>\n`;
+      // 先收集该目录下去重后的条目
+      const deduped = [];
       for (const item of cat.items) {
-        html += `        <DT><A HREF="${escAttr(item.url)}">${escHtml(item.title)}</A>\n`;
+        const nu = normUrl(item.url);
+        if (exportUrls.has(nu)) { dupSkipped++; continue; }
+        exportUrls.add(nu);
+        // 标题去掉目录前缀，与插件一致
+        let bmTitle = item.title || '';
+        const dashIdx = bmTitle.indexOf(' - ');
+        if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
+        deduped.push({ title: bmTitle, url: item.url });
       }
-      html += '    </DL><p>\n';
+      if (!deduped.length) continue;
+
+      html += `        <DT><H3>${escHtml(catName)}</H3>\n        <DL><p>\n`;
+      for (const item of deduped) {
+        html += `            <DT><A HREF="${escAttr(item.url)}">${escHtml(item.title)}</A>\n`;
+        total++;
+      }
+      html += '        </DL><p>\n';
     }
 
+    html += '    </DL><p>\n';
     html += '</DL><p>\n';
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -1628,8 +1658,10 @@ function saveRemoteToLocal() {
     a.click();
     URL.revokeObjectURL(url);
 
-    const total = remoteCats.reduce((s, c) => s + c.items.length, 0);
-    showToast(`已导出 ${total} 个书签，请在浏览器中导入`);
+    const msg = dupSkipped > 0
+      ? `已导出 ${total} 个书签（跳过 ${dupSkipped} 个重复），请在浏览器中导入`
+      : `已导出 ${total} 个书签，请在浏览器中导入`;
+    showToast(msg);
   } catch (e) {
     showToast('导出失败：' + (e.message || e));
   } finally {

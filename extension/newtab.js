@@ -895,64 +895,94 @@ if (chrome.bookmarks && chrome.bookmarks.onChanged) {
 
 // === 保存远程书签到本地 ===
 async function saveRemoteToLocal() {
-  if (!chrome.bookmarks) {
-    showToast('当前环境不支持浏览器书签API');
-    return;
-  }
-  const remoteCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
-  if (!remoteCats.length) {
-    showToast('没有远程书签可保存');
-    return;
-  }
-
   const btn = document.getElementById('saveBmBtn');
+  if (btn.classList.contains('saving')) return;
   btn.classList.add('saving');
 
   try {
+    if (!chrome || !chrome.bookmarks) {
+      showToast('当前环境不支持浏览器书签API');
+      return;
+    }
+    const remoteCats = allCategories.filter(c => c.category !== '__root_bookmarks__');
+    if (!remoteCats.length) {
+      showToast('没有远程书签可保存');
+      return;
+    }
+
+    // URL 规范化：统一解码、去末尾/，避免编码/斜杠差异导致去重失败
+    function normUrl(u) {
+      if (!u) return '';
+      try { u = decodeURIComponent(u); } catch {}
+      u = u.replace(/\/+$/, '');           // 去掉路径末尾的 /
+      return u;
+    }
+
+    // 带超时的 Promise 包装
+    function bmCall(fn, ...args) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('操作超时')), 10000);
+        fn(...args, (result) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        });
+      });
+    }
+
     // 收集本地已有书签URL（全量去重）
-    const localTree = await new Promise(r => chrome.bookmarks.getTree(r));
+    const localTree = await bmCall(chrome.bookmarks.getTree);
     const localUrls = new Set();
     function collectUrls(nodes) {
       for (const n of nodes) {
-        if (n.url) localUrls.add(n.url);
+        if (n.url) localUrls.add(normUrl(n.url));
         if (n.children) collectUrls(n.children);
       }
     }
     if (localTree[0]) collectUrls(localTree[0].children || []);
 
-    // 获取书签栏ID
-    const barId = localTree[0]?.children?.[0]?.id;
+    // 获取书签栏（工具栏）节点
+    const barNode = localTree[0]?.children?.find(n => n.id === '1' || !n.url) || localTree[0]?.children?.[0];
+    const barId = barNode?.id;
     if (!barId) { showToast('无法获取书签栏'); return; }
 
     let saved = 0, skipped = 0;
 
     for (const cat of remoteCats) {
       const catName = cat.category.split(' / ').pop();
+      // 先统计该目录下有多少新书签需要添加
+      const newItems = cat.items.filter(item => !localUrls.has(normUrl(item.url)));
+      if (newItems.length === 0) { skipped += cat.items.length; continue; }
+
       // 创建或查找目录文件夹
-      const subTree = await new Promise(r => chrome.bookmarks.getChildren(barId, r));
+      const subTree = await bmCall(chrome.bookmarks.getChildren, barId);
       let folder = subTree.find(n => n.title === catName && !n.url);
       if (!folder) {
-        folder = await new Promise(r => chrome.bookmarks.create({ parentId: barId, title: catName }, r));
+        folder = await bmCall(chrome.bookmarks.create, { parentId: barId, title: catName });
       }
 
-      // 逐条添加书签（已存在则跳过，标题去掉目录前缀）
-      for (const item of cat.items) {
-        if (localUrls.has(item.url)) { skipped++; continue; }
+      // 逐条添加书签（标题去掉目录前缀）
+      for (const item of newItems) {
         let bmTitle = item.title || '';
         const dashIdx = bmTitle.indexOf(' - ');
         if (dashIdx > 0) bmTitle = bmTitle.substring(dashIdx + 3);
-        await new Promise(r => chrome.bookmarks.create({
-          parentId: folder.id,
-          title: bmTitle,
-          url: item.url
-        }, r));
-        localUrls.add(item.url);
+        const created = await bmCall(chrome.bookmarks.create, { parentId: folder.id, title: bmTitle, url: item.url });
+        localUrls.add(normUrl(created.url || item.url));
         saved++;
       }
+      skipped += cat.items.length - newItems.length;
     }
 
-    showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
+    if (saved === 0 && skipped > 0) {
+      showToast(`所有 ${skipped} 个远程书签已存在于本地，无需添加`);
+    } else {
+      showToast(`保存完成：新增 ${saved} 个，跳过 ${skipped} 个已存在`);
+    }
   } catch (e) {
+    console.error('[SeeTab] 保存远程书签失败:', e);
     showToast('保存失败：' + (e.message || e));
   } finally {
     btn.classList.remove('saving');
