@@ -944,8 +944,9 @@ async function saveRemoteToLocal() {
     }
     if (localTree[0]) collectUrls(localTree[0].children || []);
 
-    // 获取书签栏ID
-    const barId = localTree[0]?.children?.[0]?.id;
+    // 获取书签栏（工具栏）节点
+    const barNode = localTree[0]?.children?.find(n => n.id === '1' || !n.url) || localTree[0]?.children?.[0];
+    const barId = barNode?.id;
     if (!barId) { showToast('无法获取书签栏'); return; }
 
     let saved = 0, skipped = 0;
