@@ -193,7 +193,8 @@ body.has-wallpaper > * {
   color: #4a5568;
 }
 
-.save-bm-btn {
+/* === 顶栏图标按钮（保存共用） === */
+.topbar-icon-btn {
   width: 36px;
   height: 36px;
   border-radius: 8px;
@@ -206,9 +207,9 @@ body.has-wallpaper > * {
   color: var(--text2);
 }
 
-.save-bm-btn:hover { background: var(--card-hover); color: var(--text); }
+.topbar-icon-btn:hover { background: var(--card-hover); color: var(--text); }
 
-[data-theme="light"] .save-bm-btn {
+[data-theme="light"] .topbar-icon-btn {
   background: rgba(91,106,191,0.08);
   color: #4a5568;
 }
@@ -668,16 +669,6 @@ body > .save-bm-toast {
 
 [data-theme="light"] .bookmark-item .bm-url { color: var(--text2); }
 
-/* 搜索结果高亮 */
-.search-category {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary);
-  margin: 16px 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
 /* 搜索引擎提示条 */
 .search-engine-hint {
   display: flex;
@@ -740,36 +731,6 @@ body > .save-bm-toast {
   pointer-events: none;
 }
 
-/* Toast */
-.toast {
-  position: fixed;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 24px;
-  border-radius: 8px;
-  background: rgba(0,0,0,0.8);
-  color: #fff;
-  font-size: 13px;
-  z-index: 1000;
-  transition: transform 0.3s, opacity 0.3s;
-  backdrop-filter: blur(10px);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-.toast.show {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-[data-theme="light"] .toast {
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 /* === 响应式 === */
 @media (max-width: 768px) {
   .category-grid { gap: 4px 3px; }
@@ -807,7 +768,7 @@ body > .save-bm-toast {
     <div class="theme-toggle" id="themeToggle" title="切换主题">
       <span class="theme-icon" id="themeIcon">🌙</span>
     </div>
-    <div class="save-bm-btn" id="saveBmBtn" title="导出远程书签为HTML">
+    <div class="save-bm-btn topbar-icon-btn" id="saveBmBtn" title="导出远程书签为HTML">
       <svg viewBox="0 0 24 24" width="18" height="18"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg>
     </div>
   </div>
@@ -829,8 +790,6 @@ body > .save-bm-toast {
 
   <div class="update-info" id="updateInfo"></div>
 </div>
-
-<div class="toast" id="toast"></div>
 
 <script>
 // === 设备ID管理 ===

@@ -186,8 +186,8 @@ body.has-wallpaper > * {
   color: #4a5568;
 }
 
-/* === 设置按钮 === */
-.save-bm-btn {
+/* === 顶栏图标按钮（保存/设置共用） === */
+.topbar-icon-btn {
   width: 36px;
   height: 36px;
   border-radius: 8px;
@@ -200,9 +200,9 @@ body.has-wallpaper > * {
   color: var(--text2);
 }
 
-.save-bm-btn:hover { background: var(--card-hover); color: var(--text); }
+.topbar-icon-btn:hover { background: var(--card-hover); color: var(--text); }
 
-[data-theme="light"] .save-bm-btn {
+[data-theme="light"] .topbar-icon-btn {
   background: rgba(91,106,191,0.08);
   color: #4a5568;
 }
@@ -217,26 +217,6 @@ body > .save-bm-toast {
   animation: toast-in 0.3s ease;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-
-.settings-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--weather-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
-  color: var(--text2);
-}
-
-.settings-btn:hover { background: var(--card-hover); color: var(--text); }
-
-[data-theme="light"] .settings-btn {
-  background: rgba(91,106,191,0.08);
-  color: #4a5568;
-}
 
 /* === 主容器 === */
 .container {
@@ -682,16 +662,6 @@ body > .save-bm-toast {
 
 [data-theme="light"] .bookmark-item .bm-url { color: var(--text2); }
 
-/* 搜索结果高亮 */
-.search-category {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary);
-  margin: 16px 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
 /* 搜索引擎提示条 */
 .search-engine-hint {
   display: flex;
@@ -752,36 +722,6 @@ body > .save-bm-toast {
   padding: 8px 0 12px;
   z-index: 50;
   pointer-events: none;
-}
-
-/* Toast */
-.toast {
-  position: fixed;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 24px;
-  border-radius: 8px;
-  background: rgba(0,0,0,0.8);
-  color: #fff;
-  font-size: 13px;
-  z-index: 1000;
-  transition: transform 0.3s, opacity 0.3s;
-  backdrop-filter: blur(10px);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-.toast.show {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-[data-theme="light"] .toast {
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* === 响应式 === */
