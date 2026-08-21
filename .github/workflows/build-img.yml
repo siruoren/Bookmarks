@@ -26,43 +26,19 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          # 优先从 tag 提取版本号（如 v1.2.0 -> 1.2.0）
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
-            # 从分支名提取
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            VERSION="${BRANCH#v}"
-            VERSION="${VERSION#V}"
-            # main/master 分支使用 manifest 中的版本号
-            if [[ "$VERSION" == "main" || "$VERSION" == "master" ]]; then
-              VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
-            fi
-          else
-            # PR 等其他情况，使用 manifest 中的版本号
-            VERSION=$(grep '"version"' extension/manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+          # 从 version.txt 读取版本号
+          VERSION=$(cat version.txt | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "错误: version.txt 为空或不存在"
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "==> Version: $VERSION"
+          echo "==> Version: $VERSION (来源: version.txt)"
 
       - name: Build Docker image
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # 从分支名/tag 确定 Docker tag
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            DOCKER_TAG="${VERSION}"
-          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            TAG="${BRANCH#v}"
-            TAG="${TAG#V}"
-            if [[ "$TAG" == "main" || "$TAG" == "master" ]]; then
-              TAG="latest"
-            fi
-            DOCKER_TAG="${TAG}"
-          else
-            # PR 等其他情况，使用 pr-N 格式
-            DOCKER_TAG="pr-${{ github.event.pull_request.number || '0' }}"
-          fi
+          DOCKER_TAG="${VERSION}"
           echo "docker_tag=$DOCKER_TAG" >> "$GITHUB_ENV"
           echo "==> Docker tag: seetab:${DOCKER_TAG}"
           docker build -t "seetab:${DOCKER_TAG}" .

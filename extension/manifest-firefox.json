@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SeeTab",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "自定义新标签页 - 从后端服务获取书签导航",
   "browser_specific_settings": {
     "gecko": {

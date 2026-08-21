@@ -1,6 +1,6 @@
 #!/bin/bash
 # 打包浏览器扩展为 zip 安装包（Chrome + Firefox）
-# 自动从当前 git 分支名提取版本号，并更新 manifest 版本
+# 从 version.txt 读取版本号，并更新 manifest 版本
 # 用法: ./build_ext.sh
 
 set -e
@@ -9,21 +9,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXT_DIR="$SCRIPT_DIR/extension"
 DIST_DIR="$SCRIPT_DIR/dist"
 
-
-# 从当前 git 分支名获取版本号（分支名即为版本号，如 v1.2.0 或 1.2.0）
-BRANCH=$(git -C "$SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "dev")
-# 去除前缀 v/V
-VERSION="${BRANCH#v}"
-VERSION="${VERSION#V}"
-# 分支名为 main/master 时 fallback 为 manifest 中的版本
-if [ "$VERSION" = "main" ] || [ "$VERSION" = "master" ]; then
-  VERSION=$(grep '"version"' "$EXT_DIR/manifest.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+# 从 version.txt 读取版本号
+VERSION=$(cat "$SCRIPT_DIR/version.txt" | tr -d '[:space:]')
+if [ -z "$VERSION" ]; then
+  echo "错误: version.txt 为空或不存在"
+  exit 1
 fi
+echo "==> 版本号: ${VERSION}（来源: version.txt）"
 
 # 自动更新 manifest 版本号
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" "$EXT_DIR/manifest.json"
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" "$EXT_DIR/manifest-firefox.json"
-echo "==> 版本号: ${VERSION}（分支: ${BRANCH}）"
 
 # 公共文件列表
 COMMON_FILES=(
@@ -52,8 +48,6 @@ echo "==> 打包 Firefox v${VERSION}"
 PKG_FIREFOX="seetab-firefox-v${VERSION}.zip"
 rm -f "$DIST_DIR/$PKG_FIREFOX"
 TMP_DIR=$(mktemp -d)
-# 复制文件并替换 manifest
-cp "${COMMON_FILES[@]/#/$EXT_DIR\/}" "$TMP_DIR/" 2>/dev/null || true
 cp "$EXT_DIR/newtab.html" "$TMP_DIR/"
 cp "$EXT_DIR/newtab.css" "$TMP_DIR/"
 cp "$EXT_DIR/newtab.js" "$TMP_DIR/"
@@ -65,7 +59,7 @@ cp "$EXT_DIR/background-firefox.js" "$TMP_DIR/"
 cp "$EXT_DIR/pinyin.js" "$TMP_DIR/"
 cp -r "$EXT_DIR/icons" "$TMP_DIR/"
 cp "$EXT_DIR/manifest-firefox.json" "$TMP_DIR/manifest.json"
-# 每次打包随机生成新的 gecko id
+# 固定 gecko id
 RANDOM_ID='dp8y1l87zlxq'
 sed -i '' "s/\"id\": \"[^\"]*\"/\"id\": \"${RANDOM_ID}@seetab.app\"/" "$TMP_DIR/manifest.json"
 echo "    Firefox gecko id: ${RANDOM_ID}@seetab.app"
